@@ -9,12 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest",
+    "@supabase/supabase-js": "^2.117.2",
+    "@vitejs/plugin-react": "^6.1.2",
+    "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "lucide-react": "latest",
-    "tailwindcss": "latest"
-  },
-  "devDependencies": {}
+    "tailwindcss": "latest",
+    "vite": "latest"
+  }
 }

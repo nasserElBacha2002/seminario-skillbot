@@ -35,20 +35,23 @@ La `anon key` es pública por diseño (la protección real son las políticas de
 
 ## Base de datos
 
-El schema vive en [supabase/migrations/](supabase/migrations/) y los datos iniciales en [supabase/seed.sql](supabase/seed.sql). Hay que aplicar los dos, **en ese orden**, porque el seed inserta en tablas que crea la migración y usa la función `demo_profile_id()` que se define ahí.
+El schema vive en [supabase/migrations/](supabase/migrations/) y los datos iniciales (incluido el catálogo de casos de uso) en [supabase/seed.sql](supabase/seed.sql). Hay que aplicar las migraciones en orden y después el seed, porque el seed inserta en tablas que crean las migraciones y usa la función `demo_profile_id()` que se define ahí.
 
 ### Opción A: SQL Editor del dashboard
 
 1. Abrir el SQL Editor del proyecto.
-2. Pegar y ejecutar [supabase/migrations/20261006232500_init_skillbot.sql](supabase/migrations/20261006232500_init_skillbot.sql).
-3. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
+2. Pegar y ejecutar [supabase/migrations/20261006232500_init_skillbot.sql](supabase/migrations/20261006232500_init_skillbot.sql) (si la base ya existía, saltear este paso).
+3. Pegar y ejecutar [supabase/migrations/20261012230000_use_case_catalog.sql](supabase/migrations/20261012230000_use_case_catalog.sql).
+4. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
+
+⚠️ La migración del catálogo **borra el progreso del perfil demo** (XP, logros, habilidades, racha y avance), porque apuntaba a los casos viejos de `src/data.js`, que ya no existen.
 
 Para copiar al portapapeles sin abrir los archivos (macOS): `pbcopy < supabase/seed.sql`.
 
-Si después querés usar el CLI, hay que avisarle que esa migración ya corrió, porque aplicarla por el editor no la registra en el historial:
+Si después querés usar el CLI, hay que avisarle que esas migraciones ya corrieron, porque aplicarlas por el editor no las registra en el historial:
 
 ```bash
-supabase migration repair --status applied 20261006232500
+supabase migration repair --status applied 20261006232500 20261012230000
 ```
 
 ### Opción B: Supabase CLI
@@ -76,7 +79,7 @@ supabase stop
 
 ## Schema
 
-Nueve tablas, todas con RLS activado.
+Diecinueve tablas, todas con RLS activado.
 
 **Catálogos y configuración**
 
@@ -86,6 +89,17 @@ Nueve tablas, todas con RLS activado.
 | `skills` | Taxonomía de habilidades a la que apuntan los casos de uso |
 | `achievements` | Catálogo de logros con su ícono y descripción |
 
+**Catálogo de casos de uso**
+
+| Tabla | Contenido |
+|---|---|
+| `use_cases` | Ficha del caso: situación, habilidad, dificultad, tiempo, error típico, qué aprende, XP y estado (`published` o `reserve`) |
+| `categories` / `use_case_categories` | Categorías del filtro; un caso puede tener varias y una es la principal |
+| `tools` / `use_case_tools` | IA recomendadas por caso, con rol (`primary`, `alternative`, `complement`) y el motivo |
+| `use_case_steps` | Paso a paso, con prompt de ejemplo, checklist y confirmación obligatoria opcionales |
+| `use_case_survey_tasks` | Tareas de la encuesta que cubre el caso y sus menciones |
+| `use_case_challenges` / `challenge_options` | Desafío de opción múltiple con feedback por opción; una sola correcta por caso |
+
 **Datos del usuario**
 
 | Tabla | Contenido |
@@ -94,6 +108,7 @@ Nueve tablas, todas con RLS activado.
 | `user_skills` | Porcentaje por habilidad |
 | `user_achievements` | Logros desbloqueados y cuándo |
 | `use_case_progress` | Avance por caso de uso, con estado y fecha de completado |
+| `use_case_step_progress` | Pasos marcados como hechos en cada caso |
 | `challenge_attempts` | Historial de respuestas a los desafíos |
 | `activity_days` | Una fila por día practicado; de acá se derivan la racha y la grilla semanal |
 
@@ -110,32 +125,34 @@ Es deliberadamente abierto y alcanza para una demo académica, pero no sirve par
 ```
 src/
   App.jsx                  Todas las páginas y el enrutado por estado
-  data.js                  Catálogo de casos de uso (no está en la base)
   styles.css               Estilos
   lib/supabase.js          Cliente de Supabase y el id del perfil demo
   lib/queries.js           Lecturas y escrituras contra la base
   context/SkillbotData.jsx Provider: carga, estados derivados y mutadores
 supabase/
   migrations/              Schema versionado
-  seed.sql                 Esqueleto mínimo
-  seeds/demo_progress.sql  Datos de demo opcionales (ver abajo)
+  seed.sql                 Esqueleto y catálogo de casos de uso
+  seeds/reset_progress.sql Vuelve el perfil demo a cero (ver abajo)
 ```
 
-El provider carga todo al montar y expone `data`, `loading`, `error` y los mutadores. Los valores derivados (racha, grilla semanal, progreso general, casos resueltos, habilidades practicadas) se calculan en `derive()` a partir de las filas, no se guardan.
+El provider carga todo al montar (catálogo incluido) y expone `data`, `loading`, `error` y los mutadores `toggleStep` y `completeChallenge`. Los valores derivados (racha, grilla semanal, progreso general, casos resueltos, habilidades practicadas) se calculan en `derive()` a partir de las filas, no se guardan.
 
 ## El catálogo de casos de uso
 
-Los casos de uso **no están en la base**: viven en [src/data.js](src/data.js). La decisión es a propósito, porque el catálogo va a ser reemplazado por casos más avanzados.
+Los casos viven en la base y se cargan desde [supabase/seed.sql](supabase/seed.sql). Para agregar o editar un caso alcanza con tocar el seed y volver a correrlo: no hace falta cambiar código. Las pantallas de detalle y desafío se arman con lo que trae cada caso.
 
-Las tablas de progreso referencian cada caso por su `id` en una columna `text` **sin foreign key**, así que cambiar el catálogo no requiere ninguna migración. Cada caso declara además un campo `skill` con el id de la habilidad que entrena, para que resolverlo suba la barra correcta.
+- `use_cases.icon` es el nombre de un ícono de `lucide-react`. Tiene que estar en `caseIcons` en [src/App.jsx](src/App.jsx); si no, se muestra uno genérico.
+- `use_cases.skill_id` define qué habilidad sube al resolverlo.
+- Un paso con `requires_confirmation` bloquea los pasos siguientes y el desafío hasta que el usuario lo confirma con el texto de `confirmation_label` (por ejemplo, "Hice una copia de la planilla").
+- Los casos con `status = 'reserve'` no le llegan a la app.
 
-El recorrido detallado y el desafío están implementados para un solo caso, el señalado por `featuredUseCaseId`.
+**Progreso de un caso:** cada paso marcado suma hasta el 80% y el 100% se alcanza al resolver el desafío. El XP y la habilidad se suman solo la primera vez que se resuelve.
 
-⚠️ **Antes de reemplazar el catálogo**, hay que borrar el progreso existente. Si quedan filas en `use_case_progress` o `challenge_attempts` apuntando a casos que ya no existen, la app las sigue contando en "casos resueltos" y en el progreso general. Para eso está [supabase/seeds/reset_progress.sql](supabase/seeds/reset_progress.sql).
+Las tablas de progreso tienen foreign key hacia `use_cases`, así que no pueden quedar filas apuntando a casos que no existen. Las opciones del desafío se leen con `is_correct` incluido porque la corrección se hace en el frontend: en la demo, la respuesta es visible para quien inspeccione la red.
 
 ## Seeds
 
-[supabase/seed.sql](supabase/seed.sql) siembra **solo el esqueleto**: los niveles, el perfil demo en 0 XP y los catálogos de habilidades y logros. No inserta nada atado a casos de uso concretos, así que no deja filas para borrar después. Es idempotente.
+[supabase/seed.sql](supabase/seed.sql) siembra el esqueleto (niveles, perfil demo en 0 XP, habilidades y logros) y el catálogo de casos de uso. No inserta progreso del usuario. Es idempotente; si se saca un paso o una opción del archivo, hay que borrar esa fila a mano.
 
 Con eso la app arranca en cero: 0 XP, 0%, sin racha, habilidades en 0% y los cuatro logros bloqueados. Todo se llena practicando.
 
@@ -143,7 +160,7 @@ Con eso la app arranca en cero: 0 XP, 0%, sin racha, habilidades en 0% y los cua
 
 ### Cómo se desbloquean los logros
 
-La lógica está en `completeChallenge` en [src/context/SkillbotData.jsx](src/context/SkillbotData.jsx):
+La lógica está en `loadWithAchievements` en [src/context/SkillbotData.jsx](src/context/SkillbotData.jsx), que corre después de marcar un paso o responder un desafío:
 
 | Logro | Condición |
 |---|---|

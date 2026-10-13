@@ -1,5 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { useCases } from '../data'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   addXp,
   bumpSkill,
@@ -7,11 +6,16 @@ import {
   markActivityToday,
   recordChallengeAttempt,
   saveUseCaseProgress,
+  setStepDone,
   toDayString,
   unlockAchievement,
 } from '../lib/queries'
 
 const WEEK_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+
+// Los pasos llevan el caso hasta este porcentaje; el 100% solo se alcanza
+// resolviendo el desafio.
+const STEPS_PROGRESS_CAP = 80
 
 const SkillbotDataContext = createContext(null)
 
@@ -41,13 +45,17 @@ function buildWeek(activityDays) {
 }
 
 function derive(raw) {
-  const entries = Object.values(raw.progress)
+  // Un caso que paso a reserva deja de venir en el catalogo; su progreso no cuenta.
+  const caseIds = new Set(raw.useCases.map((x) => x.id))
+  const progress = Object.fromEntries(Object.entries(raw.progress).filter(([id]) => caseIds.has(id)))
+  const entries = Object.values(progress)
   const completedCount = entries.filter((x) => x.status === 'completed').length
-  const totalCases = useCases.length
+  const totalCases = raw.useCases.length
   const accumulated = entries.reduce((sum, x) => sum + x.progress, 0)
 
   return {
     ...raw,
+    progress,
     completedCount,
     totalCases,
     overallProgress: totalCases ? Math.round(accumulated / totalCases) : 0,
@@ -58,9 +66,25 @@ function derive(raw) {
   }
 }
 
+async function loadWithAchievements() {
+  const fresh = derive(await fetchSkillbotData())
+  const pending = []
+  if (fresh.completedCount >= 1) pending.push('primer-caso')
+  if (fresh.streak >= 3) pending.push('racha-3')
+  if (Object.keys(fresh.progress).length >= 3) pending.push('explorador')
+  if (fresh.completedCount >= 5) pending.push('cinco-casos')
+
+  const toUnlock = pending.filter((id) => !fresh.achievements.find((a) => a.id === id)?.unlocked)
+  if (!toUnlock.length) return fresh
+  await Promise.all(toUnlock.map(unlockAchievement))
+  return derive(await fetchSkillbotData())
+}
+
 export function SkillbotDataProvider({ children }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
+  const dataRef = useRef(null)
+  dataRef.current = data
 
   const reload = useCallback(async () => {
     try {
@@ -75,45 +99,46 @@ export function SkillbotDataProvider({ children }) {
     reload()
   }, [reload])
 
-  const completeChallenge = useCallback(
-    async ({ useCaseSlug, selectedOption, isCorrect, xpReward, skillId }) => {
-      await recordChallengeAttempt({
-        useCaseSlug,
-        selectedOption,
-        isCorrect,
-        xpEarned: isCorrect ? xpReward : 0,
-      })
+  const toggleStep = useCallback(async ({ useCase, position, done }) => {
+    const current = dataRef.current
+    await setStepDone(useCase.id, position, done)
 
-      if (isCorrect) {
-        await Promise.all([
-          addXp(xpReward),
-          saveUseCaseProgress(useCaseSlug, 100),
-          markActivityToday(),
-          skillId ? bumpSkill(skillId, 5) : Promise.resolve(),
-        ])
-      }
+    const previous = new Set(current.doneSteps[useCase.id] ?? [])
+    if (done) previous.add(position)
+    else previous.delete(position)
 
-      const fresh = derive(await fetchSkillbotData())
-      const pending = []
-      if (fresh.completedCount >= 1) pending.push('primer-caso')
-      if (fresh.streak >= 3) pending.push('racha-3')
-      if (Object.keys(fresh.progress).length >= 3) pending.push('explorador')
-      if (fresh.completedCount >= 5) pending.push('cinco-casos')
+    const writes = [markActivityToday()]
+    if (current.progress[useCase.id]?.status !== 'completed') {
+      const value = Math.round((previous.size / useCase.steps.length) * STEPS_PROGRESS_CAP)
+      writes.push(saveUseCaseProgress(useCase.id, value))
+    }
+    await Promise.all(writes)
+    setData(await loadWithAchievements())
+  }, [])
 
-      const toUnlock = pending.filter((id) => !fresh.achievements.find((a) => a.id === id)?.unlocked)
-      if (toUnlock.length) {
-        await Promise.all(toUnlock.map(unlockAchievement))
-        setData(derive(await fetchSkillbotData()))
-      } else {
-        setData(fresh)
-      }
-    },
-    [],
-  )
+  // Devuelve el XP ganado: solo se suma la primera vez que se resuelve el caso.
+  const completeChallenge = useCallback(async ({ useCase, selectedOption, isCorrect }) => {
+    const firstTime = dataRef.current.progress[useCase.id]?.status !== 'completed'
+    const xpEarned = isCorrect && firstTime ? useCase.xpReward : 0
+
+    await recordChallengeAttempt({ useCaseSlug: useCase.id, selectedOption, isCorrect, xpEarned })
+
+    if (isCorrect) {
+      await Promise.all([
+        markActivityToday(),
+        firstTime ? saveUseCaseProgress(useCase.id, 100) : null,
+        xpEarned ? addXp(xpEarned) : null,
+        firstTime && useCase.skill ? bumpSkill(useCase.skill, 5) : null,
+      ])
+    }
+
+    setData(await loadWithAchievements())
+    return xpEarned
+  }, [])
 
   const value = useMemo(
-    () => ({ data, loading: !data && !error, error, reload, completeChallenge }),
-    [data, error, reload, completeChallenge],
+    () => ({ data, loading: !data && !error, error, reload, toggleStep, completeChallenge }),
+    [data, error, reload, toggleStep, completeChallenge],
   )
 
   return <SkillbotDataContext.Provider value={value}>{children}</SkillbotDataContext.Provider>

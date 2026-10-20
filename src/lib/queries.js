@@ -174,8 +174,21 @@ function toUseCase(row) {
   }
 }
 
+async function fetchDoneChallenges() {
+  const { data, error } = await supabase
+    .from('practice_rewards')
+    .select('use_case_id, position')
+    .eq('profile_id', DEMO_PROFILE_ID)
+  if (error) return {}
+  const doneChallenges = {}
+  for (const row of data ?? []) {
+    if (row.position >= 1 && row.position <= 3) (doneChallenges[row.use_case_id] ??= []).push(row.position)
+  }
+  return doneChallenges
+}
+
 export async function fetchSkillbotData() {
-  const [catalogRows, categories, profile, levels, skills, userSkills, achievements, unlocked, progress, stepProgress, activity] = await Promise.all([
+  const [catalogRows, categories, profile, levels, skills, userSkills, achievements, unlocked, progress, stepProgress, activity, doneChallenges] = await Promise.all([
     fetchUseCaseRows(),
     supabase.from('categories').select('id, name').order('sort_order').then(unwrap),
     supabase.from('profiles').select('id, display_name, initials, goal, interests, xp, level_id').eq('id', DEMO_PROFILE_ID).single().then(unwrap),
@@ -187,6 +200,7 @@ export async function fetchSkillbotData() {
     supabase.from('use_case_progress').select('use_case_slug, progress, status, completed_at, updated_at').eq('profile_id', DEMO_PROFILE_ID).then(unwrap),
     supabase.from('use_case_step_progress').select('use_case_id, position').eq('profile_id', DEMO_PROFILE_ID).then(unwrap),
     supabase.from('activity_days').select('day').eq('profile_id', DEMO_PROFILE_ID).then(unwrap),
+    fetchDoneChallenges(),
   ])
 
   const valueBySkill = new Map(userSkills.map((x) => [x.skill_id, x.value]))
@@ -200,6 +214,7 @@ export async function fetchSkillbotData() {
     useCases: catalog.useCases,
     categories: catalog.categories,
     doneSteps,
+    doneChallenges,
     profile: {
       name: profile.display_name,
       initials: profile.initials,
@@ -229,6 +244,15 @@ export function completePracticeChallenge({ useCaseId, position, selected, corre
     p_correct: correct,
     p_day: day,
   }).then(unwrap)
+}
+
+export function clearCaseSteps(useCaseId) {
+  return supabase
+    .from('use_case_step_progress')
+    .delete()
+    .eq('profile_id', DEMO_PROFILE_ID)
+    .eq('use_case_id', useCaseId)
+    .then(unwrap)
 }
 
 export function setStepDone(useCaseId, position, done) {

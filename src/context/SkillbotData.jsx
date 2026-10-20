@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  clearCaseSteps,
   completePracticeChallenge,
   fetchSkillbotData,
   markActivityToday,
@@ -123,13 +124,21 @@ export function SkillbotDataProvider({ children }) {
     setData(await loadWithAchievements())
   }, [])
 
+  const restartPractice = useCallback(async (useCase) => {
+    await clearCaseSteps(useCase.id)
+    await saveUseCaseProgress(useCase.id, 10)
+    await markActivityToday()
+    setData(await loadWithAchievements())
+  }, [])
+
   // El XP lo decide la base, una vez por desafío. Copiar o abrir una IA no pasa por acá.
   const finishChallenge = useCallback(async ({ useCase, position, selectedOption, isCorrect }) => {
+    if (!isCorrect) return 0
     const awarded = await completePracticeChallenge({
       useCaseId: useCase.id,
       position,
       selected: selectedOption,
-      correct: isCorrect,
+      correct: true,
       day: toDayString(new Date()),
     })
     setData(await loadWithAchievements())
@@ -137,8 +146,8 @@ export function SkillbotDataProvider({ children }) {
   }, [])
 
   const value = useMemo(
-    () => ({ data, loading: !data && !error, error, reload, toggleStep, beginPractice, finishChallenge }),
-    [data, error, reload, toggleStep, beginPractice, finishChallenge],
+    () => ({ data, loading: !data && !error, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge }),
+    [data, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge],
   )
 
   return <SkillbotDataContext.Provider value={value}>{children}</SkillbotDataContext.Provider>

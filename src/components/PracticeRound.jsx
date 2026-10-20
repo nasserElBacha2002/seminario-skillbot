@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, Check, LoaderCircle } from 'lucide-react'
+import { ArrowRight, Check, LoaderCircle, RotateCcw } from 'lucide-react'
 
 const CLOSING = {
   detect_error: 'Detectaste un pedido incompleto',
@@ -25,11 +25,14 @@ export function PracticeRound({ challenge, index, total, onAnswer, onContinue })
     setSaveError(null)
     let xp = 0
     try {
-      xp = await onAnswer({
-        position: challenge.position,
-        selectedOption: option.letter,
-        isCorrect: option.is_correct,
-      })
+      // Solo se cobra XP si acertó. Un error no tiene que guardar premio.
+      if (option.is_correct) {
+        xp = await onAnswer({
+          position: challenge.position,
+          selectedOption: option.letter,
+          isCorrect: true,
+        })
+      }
     } catch (error) {
       setSaveError(error)
     } finally {
@@ -37,6 +40,12 @@ export function PracticeRound({ challenge, index, total, onAnswer, onContinue })
     }
     const feedback = option.feedback || (option.is_correct ? challenge.feedbackCorrect : challenge.feedbackIncorrect)
     setResult({ correct: option.is_correct, feedback, xp })
+  }
+
+  function retry() {
+    setSelected(null)
+    setResult(null)
+    setSaveError(null)
   }
 
   return (
@@ -88,9 +97,15 @@ export function PracticeRound({ challenge, index, total, onAnswer, onContinue })
           <div>
             <h2>{result.correct ? 'Bien visto' : 'Mirá este detalle'}</h2>
             <p>{result.feedback}</p>
-            {result.xp > 0 && <p className="earned">+{result.xp} XP</p>}
+            {result.correct && result.xp > 0 && <p className="earned">+{result.xp} XP</p>}
+            {!result.correct && <p className="feedback-hint">Este intento no suma XP. Corregilo para ganarlo.</p>}
             <div className="case-actions">
-              <button type="button" className="primary" onClick={onContinue}>
+              {!result.correct && (
+                <button type="button" className="primary" onClick={retry}>
+                  Intentar de nuevo <RotateCcw size={16} />
+                </button>
+              )}
+              <button type="button" className={result.correct ? 'primary' : 'secondary'} onClick={onContinue}>
                 {last ? 'Ver el cierre' : 'Siguiente desafío'} <ArrowRight size={17} />
               </button>
             </div>

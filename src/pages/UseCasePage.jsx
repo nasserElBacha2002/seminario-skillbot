@@ -1,18 +1,14 @@
 import { useEffect, useState } from 'react'
 import { caseIcon } from '../components/icons'
+import { CaseGuide } from '../components/CaseGuide'
 import { CaseResult } from '../components/CaseResult'
 import { DynamicCaseForm } from '../components/DynamicCaseForm'
 import { Layout } from '../components/Layout'
 import { closingLine, PracticeRound } from '../components/PracticeRound'
 import { useSkillbotData } from '../context/SkillbotData'
+import { nextChallengeIndex, practiceFieldsOf, resumePractice } from '../lib/practice'
 import { fillTemplate, unresolvedPlaceholders } from '../lib/template'
-import { loadDraft, loadResult, rememberCase, saveResult } from '../lib/storage'
-
-function practiceFieldsOf(useCase) {
-  const fields = useCase.fields.filter((field) => field.practice)
-  const source = fields.length ? fields : useCase.fields.slice(0, 3)
-  return [...source].sort((a, b) => (a.practiceOrder ?? 99) - (b.practiceOrder ?? 99))
-}
+import { clearSession, loadDraft, loadResult, loadSession, rememberCase, saveResult, saveSession } from '../lib/storage'
 
 function openAnswer(useCase, values) {
   const field = practiceFieldsOf(useCase).find((item) => item.type === 'textarea')
@@ -27,8 +23,12 @@ function buildPrompt(useCase, values) {
   return fillTemplate(useCase.outputTemplate, values, optionalKeys).trim()
 }
 
+function answeredPositions(useCaseId, serverDone) {
+  return [...new Set([...(loadSession(useCaseId).answered ?? []), ...(serverDone ?? [])])]
+}
+
 export function UseCasePage({ setPage, useCase, origin }) {
-  const { data, beginPractice, finishChallenge } = useSkillbotData()
+  const { data, beginPractice, restartPractice, finishChallenge } = useSkillbotData()
   const Icon = caseIcon(useCase)
   const progress = data.progress[useCase.id]
   const completed = progress?.status === 'completed' || progress?.progress === 100
@@ -55,9 +55,36 @@ export function UseCasePage({ setPage, useCase, origin }) {
     setSaveError(null)
   }, [useCase.id])
 
+  function applyPoint(point) {
+    setRound(point.round)
+    if (point.stage === 'done') {
+      showResult()
+      return
+    }
+    setStage(point.stage)
+    saveSession(useCase.id, { stage: point.stage, round: point.round })
+  }
+
+  function currentPoint() {
+    return resumePractice({
+      useCase,
+      values: loadDraft(useCase.id),
+      doneSteps: data.doneSteps[useCase.id] ?? [],
+      donePositions: answeredPositions(useCase.id, data.doneChallenges?.[useCase.id]),
+    })
+  }
+
   function start() {
     setSaveError(null)
-    setStage('context')
+    if (completed) {
+      clearSession(useCase.id)
+      setRound(0)
+      setEarned(0)
+      setStage('context')
+      restartPractice(useCase).catch((error) => setSaveError(error))
+      return
+    }
+    applyPoint(currentPoint())
     beginPractice(useCase).catch((error) => setSaveError(error))
   }
 
@@ -69,6 +96,7 @@ export function UseCasePage({ setPage, useCase, origin }) {
     }
     setSituation(openAnswer(useCase, values))
     setStage('keys')
+    saveSession(useCase.id, { stage: 'keys' })
   }
 
   function showResult() {
@@ -79,9 +107,19 @@ export function UseCasePage({ setPage, useCase, origin }) {
     setResultText(stored)
     setSituation(openAnswer(useCase, values))
     setStage('done')
+    saveSession(useCase.id, { stage: 'done' })
   }
 
   async function answer(payload) {
+    if (payload.isCorrect) {
+      const answered = [...answeredPositions(useCase.id, data.doneChallenges?.[useCase.id]), payload.position]
+      const next = nextChallengeIndex(challenges, answered)
+      saveSession(useCase.id, {
+        answered,
+        stage: next === -1 ? 'done' : 'practice',
+        round: next === -1 ? 0 : next,
+      })
+    }
     try {
       const xp = await finishChallenge({ useCase, ...payload })
       setEarned((current) => current + xp)
@@ -148,15 +186,13 @@ export function UseCasePage({ setPage, useCase, origin }) {
         )}
 
         {stage === 'keys' && (
-          <section className="practice-keys">
-            <h2 className="flow-title">Antes de empezar</h2>
-            <ul>
-              {(useCase.keys ?? []).slice(0, 4).map((key) => <li key={key}>{key}</li>)}
-            </ul>
-            <button type="button" className="primary" onClick={() => { setRound(0); setStage('practice') }}>
-              Empezar el primer desafío
-            </button>
-          </section>
+          <CaseGuide
+            useCase={useCase}
+            onContinue={() => {
+              const point = currentPoint()
+              applyPoint(point.stage === 'keys' ? { stage: 'practice', round: 0 } : point)
+            }}
+          />
         )}
 
         {stage === 'practice' && challenges[round] && (
@@ -167,8 +203,12 @@ export function UseCasePage({ setPage, useCase, origin }) {
             total={challenges.length}
             onAnswer={answer}
             onContinue={() => {
-              if (round < challenges.length - 1) setRound(round + 1)
-              else showResult()
+              const next = nextChallengeIndex(challenges, answeredPositions(useCase.id, data.doneChallenges?.[useCase.id]))
+              if (next === -1) showResult()
+              else {
+                setRound(next)
+                saveSession(useCase.id, { stage: 'practice', round: next })
+              }
             }}
           />
         )}

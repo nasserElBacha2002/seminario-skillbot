@@ -1,18 +1,13 @@
 import { useState } from 'react'
 import { ExternalLink } from 'lucide-react'
+import { arrangeTools } from './CaseGuide'
 import { copyText } from '../lib/clipboard'
-
-function arrangeTools(tools) {
-  const usable = tools.filter((tool) => tool.url)
-  const primaries = usable.filter((tool) => tool.role === 'primary')
-  const recommended = primaries[0] || usable[0] || null
-  return { recommended, others: usable.filter((tool) => tool !== recommended) }
-}
 
 export function CaseResult({ text, tools, situation, xpNote, saveError, onEdit, onBack }) {
   const [notice, setNotice] = useState('')
   const [copied, setCopied] = useState(false)
   const { recommended, others } = arrangeTools(tools)
+  const extra = others.filter((tool) => tool.url)
 
   async function copy() {
     const ok = await copyText(text)
@@ -32,8 +27,8 @@ export function CaseResult({ text, tools, situation, xpNote, saveError, onEdit, 
 
   return (
     <div className="case-result">
-      <h2>Tu pedido mejorado</h2>
-      <p className="result-lead">Lo armamos con lo que contaste y con lo que conviene mirar en este tipo de tarea.</p>
+      <h2>Ponelo en práctica vos</h2>
+      <p className="result-lead">Ya practicaste qué mirar. Copiá este pedido, abrí la herramienta que viste antes y usalo en tu caso real.</p>
       {situation && (
         <article className="situation-note">
           <p className="case-kicker">Tu situación</p>
@@ -51,15 +46,17 @@ export function CaseResult({ text, tools, situation, xpNote, saveError, onEdit, 
           <p className="rec-kicker">Llevalo a la práctica</p>
           <h3>{recommended.name}</h3>
           {recommended.reason && <p>{recommended.reason}</p>}
-          <button type="button" className="primary" onClick={() => openTool(recommended)}>
-            Abrir en {recommended.name} <ExternalLink size={15} />
-          </button>
+          {recommended.url && (
+            <button type="button" className="primary" onClick={() => openTool(recommended)}>
+              Abrir en {recommended.name} <ExternalLink size={15} />
+            </button>
+          )}
         </section>
       )}
-      {others.length > 0 && (
+      {extra.length > 0 && (
         <p className="tool-extra">
           <span>Otras opciones</span>
-          {others.map((tool, index) => (
+          {extra.map((tool, index) => (
             <span key={tool.id}>
               {index > 0 && ' · '}
               <button type="button" onClick={() => openTool(tool)}>{tool.name}</button>

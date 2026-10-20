@@ -1,5 +1,6 @@
 const draftKey = (id) => `skillbot:draft:${id}`
 const resultKey = (id) => `skillbot:result:${id}`
+const sessionKey = (id) => `skillbot:session:${id}`
 const RECENT_KEY = 'skillbot:recent'
 
 function read(key) {
@@ -41,6 +42,34 @@ export function saveResult(useCaseId, text, values) {
     resultKey(useCaseId),
     JSON.stringify({ text, values, updatedAt: new Date().toISOString() }),
   )
+}
+
+export function loadSession(useCaseId) {
+  const session = read(sessionKey(useCaseId))
+  if (!session || typeof session !== 'object') return { answered: [] }
+  const answered = Array.isArray(session.answered)
+    ? session.answered.map(Number).filter((position) => position >= 1 && position <= 3)
+    : []
+  return { ...session, answered }
+}
+
+export function saveSession(useCaseId, patch) {
+  const current = loadSession(useCaseId)
+  return write(sessionKey(useCaseId), JSON.stringify({
+    ...current,
+    ...patch,
+    answered: patch.answered ?? current.answered,
+    updatedAt: new Date().toISOString(),
+  }))
+}
+
+export function clearSession(useCaseId) {
+  try {
+    localStorage.removeItem(sessionKey(useCaseId))
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function rememberCase(useCaseId) {

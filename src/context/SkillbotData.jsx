@@ -1,10 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  addXp,
-  bumpSkill,
   fetchSkillbotData,
   markActivityToday,
   recordChallengeAttempt,
+  resolveUseCase,
   saveUseCaseProgress,
   setStepDone,
   toDayString,
@@ -116,29 +115,28 @@ export function SkillbotDataProvider({ children }) {
     setData(await loadWithAchievements())
   }, [])
 
-  // Devuelve el XP ganado: solo se suma la primera vez que se resuelve el caso.
-  const completeChallenge = useCallback(async ({ useCase, selectedOption, isCorrect }) => {
-    const firstTime = dataRef.current.progress[useCase.id]?.status !== 'completed'
-    const xpEarned = isCorrect && firstTime ? useCase.xpReward : 0
-
-    await recordChallengeAttempt({ useCaseSlug: useCase.id, selectedOption, isCorrect, xpEarned })
-
-    if (isCorrect) {
-      await Promise.all([
-        markActivityToday(),
-        firstTime ? saveUseCaseProgress(useCase.id, 100) : null,
-        xpEarned ? addXp(xpEarned) : null,
-        firstTime && useCase.skill ? bumpSkill(useCase.skill, 5) : null,
-      ])
-    }
-
-    setData(await loadWithAchievements())
-    return xpEarned
+  // La base decide si corresponde XP. El cliente no mira el progreso cacheado.
+  const awardFirstResolution = useCallback(async (useCase) => {
+    const awarded = await resolveUseCase(useCase.id, toDayString(new Date()))
+    return Number(awarded) || 0
   }, [])
 
+  const markResolved = useCallback(async (useCase) => {
+    const xpEarned = await awardFirstResolution(useCase)
+    setData(await loadWithAchievements())
+    return xpEarned
+  }, [awardFirstResolution])
+
+  const completeChallenge = useCallback(async ({ useCase, selectedOption, isCorrect }) => {
+    const xpEarned = isCorrect ? await awardFirstResolution(useCase) : 0
+    await recordChallengeAttempt({ useCaseSlug: useCase.id, selectedOption, isCorrect, xpEarned })
+    if (isCorrect) setData(await loadWithAchievements())
+    return xpEarned
+  }, [awardFirstResolution])
+
   const value = useMemo(
-    () => ({ data, loading: !data && !error, error, reload, toggleStep, completeChallenge }),
-    [data, error, reload, toggleStep, completeChallenge],
+    () => ({ data, loading: !data && !error, error, reload, toggleStep, completeChallenge, markResolved }),
+    [data, error, reload, toggleStep, completeChallenge, markResolved],
   )
 
   return <SkillbotDataContext.Provider value={value}>{children}</SkillbotDataContext.Provider>

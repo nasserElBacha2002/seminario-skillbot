@@ -1,3 +1,5 @@
+import { fallbackCategories, guidedCases, guidedTools, toolUrls } from '../data/guidedCases.js'
+import { isLegacySchemaError } from './schemaError.js'
 import { DEMO_PROFILE_ID, supabase } from './supabase'
 
 // Fecha local en formato YYYY-MM-DD. No se usa toISOString porque convierte a
@@ -14,7 +16,7 @@ function unwrap({ data, error }) {
   return data
 }
 
-const USE_CASE_COLUMNS = `
+const USE_CASE_BASE = `
   id, title, summary, situation, skill_id, difficulty, estimated_minutes, icon, color,
   common_mistake, learning_outcome, xp_reward, sort_order,
   categories:use_case_categories(is_primary, category:categories(id, name, sort_order)),
@@ -23,6 +25,76 @@ const USE_CASE_COLUMNS = `
   survey:use_case_survey_tasks(position, task, mentions),
   challenge:use_case_challenges(title, scenario, question, options:challenge_options(letter, body, is_correct, feedback))
 `
+
+const USE_CASE_COLUMNS = `
+  id, title, summary, situation, skill_id, difficulty, estimated_minutes, icon, color,
+  common_mistake, learning_outcome, xp_reward, sort_order, output_template,
+  categories:use_case_categories(is_primary, category:categories(id, name, sort_order)),
+  tools:use_case_tools(role, reason, sort_order, tool:tools(id, name, url)),
+  steps:use_case_steps(position, body, example_prompt, checklist, requires_confirmation, confirmation_label),
+  survey:use_case_survey_tasks(position, task, mentions),
+  fields:use_case_fields(id, key, label, type, placeholder, required, position, options, helper_text),
+  challenge:use_case_challenges(title, scenario, question, options:challenge_options(letter, body, is_correct, feedback))
+`
+
+const LEGACY_CATEGORIES = new Set(['administracion', 'vinculacion', 'explicacion-ia', 'diseno', 'programacion'])
+
+let fallbackWarned = false
+
+function warnFallback(detail) {
+  if (fallbackWarned) return
+  fallbackWarned = true
+  console.warn(
+    '[skillbot] Catálogo en respaldo temporal (src/data/guidedCases.js). No es la fuente de verdad. Aplicá las migraciones 20261020210000 y 20261020223000, corré el seed y eliminá ese archivo.',
+    detail,
+  )
+}
+
+async function fetchUseCaseRows() {
+  const extended = await supabase.from('use_cases').select(USE_CASE_COLUMNS).eq('status', 'published').order('sort_order')
+  if (!extended.error) return { rows: extended.data, legacySchema: false }
+  if (!isLegacySchemaError(extended.error)) throw extended.error
+  const base = await supabase.from('use_cases').select(USE_CASE_BASE).eq('status', 'published').order('sort_order')
+  if (base.error) throw base.error
+  return { rows: base.data, legacySchema: true }
+}
+
+function mapFields(fields) {
+  return [...fields].sort(byKey('position')).map((field) => ({
+    id: field.id,
+    key: field.key,
+    label: field.label,
+    type: field.type,
+    placeholder: field.placeholder ?? '',
+    required: field.required,
+    options: field.options ?? [],
+    helper: field.helper_text ?? field.helper ?? '',
+  }))
+}
+
+function withGuidance(useCases, categories, legacySchema) {
+  const legacyCategories = categories.length > 0 && categories.every((category) => LEGACY_CATEGORIES.has(category.id))
+  const useFixture = legacySchema || legacyCategories
+  if (useFixture) warnFallback(legacySchema ? 'schema anterior' : 'categorías anteriores')
+  const resolvedCategories = useFixture ? fallbackCategories : categories
+  const resolvedCases = useCases.map((item) => {
+    const guide = useFixture ? guidedCases[item.id] : null
+    const categoryIds = useFixture && guide?.categoryIds?.length ? guide.categoryIds : item.categoryIds
+    const categoryNames = categoryIds.map((id) => resolvedCategories.find((category) => category.id === id)?.name).filter(Boolean)
+    return {
+      ...item,
+      categoryIds,
+      categoryNames: categoryNames.length ? categoryNames : item.categoryNames,
+      category: categoryNames[0] || item.category,
+      outputTemplate: useFixture ? (item.outputTemplate || guide?.outputTemplate || '') : item.outputTemplate,
+      fields: useFixture && !item.fields.length ? (guide?.fields ?? []) : item.fields,
+      tools: useFixture && guidedTools[item.id]
+        ? guidedTools[item.id].map((tool) => ({ ...tool, url: toolUrls[tool.id] || '' }))
+        : item.tools.map((tool) => ({ ...tool, url: tool.url || '' })),
+    }
+  })
+  return { useCases: resolvedCases, categories: resolvedCategories }
+}
 
 const byKey = (key) => (a, b) => a[key] - b[key]
 
@@ -36,6 +108,7 @@ function toUseCase(row) {
     description: row.summary,
     situation: row.situation,
     category: categories[0]?.category.name ?? '',
+    categoryNames: categories.map((x) => x.category.name),
     categoryIds: categories.map((x) => x.category.id),
     estimatedTime: `${row.estimated_minutes} min`,
     difficulty: row.difficulty,
@@ -45,7 +118,8 @@ function toUseCase(row) {
     xpReward: row.xp_reward,
     mistake: row.common_mistake,
     learning: row.learning_outcome,
-    tools: [...row.tools].sort(byKey('sort_order')).map((x) => ({ id: x.tool.id, name: x.tool.name, role: x.role, reason: x.reason })),
+    outputTemplate: row.output_template ?? '',
+    tools: [...row.tools].sort(byKey('sort_order')).map((x) => ({ id: x.tool.id, name: x.tool.name, role: x.role, reason: x.reason, url: x.tool?.url ?? '' })),
     steps: [...row.steps].sort(byKey('position')).map((x) => ({
       position: x.position,
       body: x.body,
@@ -54,6 +128,8 @@ function toUseCase(row) {
       gate: x.requires_confirmation ? x.confirmation_label : null,
     })),
     survey: [...row.survey].sort(byKey('position')),
+    demand: [...row.survey].reduce((sum, task) => sum + (task.mentions || 0), 0),
+    fields: mapFields(row.fields ?? []),
     challenge: challenge && {
       title: challenge.title,
       scenario: challenge.scenario,
@@ -64,8 +140,8 @@ function toUseCase(row) {
 }
 
 export async function fetchSkillbotData() {
-  const [useCases, categories, profile, levels, skills, userSkills, achievements, unlocked, progress, stepProgress, activity] = await Promise.all([
-    supabase.from('use_cases').select(USE_CASE_COLUMNS).eq('status', 'published').order('sort_order').then(unwrap),
+  const [catalogRows, categories, profile, levels, skills, userSkills, achievements, unlocked, progress, stepProgress, activity] = await Promise.all([
+    fetchUseCaseRows(),
     supabase.from('categories').select('id, name').order('sort_order').then(unwrap),
     supabase.from('profiles').select('id, display_name, initials, goal, interests, xp, level_id').eq('id', DEMO_PROFILE_ID).single().then(unwrap),
     supabase.from('levels').select('id, name, min_xp, next_xp, sort_order').order('sort_order').then(unwrap),
@@ -83,14 +159,18 @@ export async function fetchSkillbotData() {
   const doneSteps = {}
   for (const x of stepProgress) (doneSteps[x.use_case_id] ??= []).push(x.position)
 
+  const catalog = withGuidance(catalogRows.rows.map(toUseCase), categories, catalogRows.legacySchema)
+
   return {
-    useCases: useCases.map(toUseCase),
-    categories,
+    useCases: catalog.useCases,
+    categories: catalog.categories,
     doneSteps,
     profile: {
       name: profile.display_name,
       initials: profile.initials,
-      goal: profile.goal,
+      goal: profile.goal === 'Aprender a elegir y utilizar herramientas de IA para resolver tareas cotidianas.'
+        ? 'Resolver tareas concretas usando IA, sin tener que saber de antemano qué herramienta elegir.'
+        : profile.goal,
       interests: profile.interests ?? [],
       xp: profile.xp,
     },
@@ -102,8 +182,8 @@ export async function fetchSkillbotData() {
   }
 }
 
-export function addXp(amount) {
-  return supabase.rpc('add_xp', { p_profile_id: DEMO_PROFILE_ID, p_amount: amount }).then(unwrap)
+export function resolveUseCase(useCaseId, day) {
+  return supabase.rpc('resolve_use_case', { p_use_case_id: useCaseId, p_day: day }).then(unwrap)
 }
 
 export function setStepDone(useCaseId, position, done) {
@@ -157,30 +237,6 @@ export function markActivityToday() {
     .from('activity_days')
     .upsert({ profile_id: DEMO_PROFILE_ID, day: toDayString(new Date()) }, { onConflict: 'profile_id,day' })
     .then(unwrap)
-}
-
-export function bumpSkill(skillId, delta) {
-  // Lee y vuelve a escribir en lugar de usar un increment atomico porque es un
-  // unico usuario demo y no hay escrituras concurrentes.
-  return supabase
-    .from('user_skills')
-    .select('value')
-    .eq('profile_id', DEMO_PROFILE_ID)
-    .eq('skill_id', skillId)
-    .maybeSingle()
-    .then(unwrap)
-    .then((row) => {
-      const value = Math.min(100, (row?.value ?? 0) + delta)
-      return supabase
-        .from('user_skills')
-        .upsert(
-          { profile_id: DEMO_PROFILE_ID, skill_id: skillId, value, updated_at: new Date().toISOString() },
-          { onConflict: 'profile_id,skill_id' },
-        )
-        .select('skill_id, value')
-        .single()
-        .then(unwrap)
-    })
 }
 
 export function unlockAchievement(achievementId) {

@@ -61,31 +61,33 @@ on conflict (id) do update
       icon = excluded.icon,
       sort_order = excluded.sort_order;
 
--- Categorias del filtro de Explorar.
+-- Categorías por necesidad. Un caso puede tener más de una.
 insert into public.categories (id, name, sort_order) values
-  ('administracion', 'Administración de tareas', 1),
-  ('vinculacion', 'Vinculación con herramientas', 2),
-  ('explicacion-ia', 'Explicación de IA', 3),
-  ('diseno', 'Diseño', 4),
-  ('programacion', 'Programación', 5)
+  ('presentaciones', 'Presentaciones', 1),
+  ('datos', 'Datos y análisis', 2),
+  ('estudio', 'Estudio', 3),
+  ('organizacion', 'Organización y productividad', 4),
+  ('contenido', 'Contenido y redacción', 5),
+  ('automatizacion', 'Automatización', 6)
 on conflict (id) do update
   set name = excluded.name,
       sort_order = excluded.sort_order;
 
-insert into public.tools (id, name, sort_order) values
-  ('chatgpt', 'ChatGPT', 1),
-  ('claude', 'Claude', 2),
-  ('gemini', 'Gemini', 3),
-  ('copilot', 'Copilot', 4),
-  ('notebooklm', 'NotebookLM', 5),
-  ('apps-script', 'Google Apps Script', 6),
-  ('diseno', 'Herramienta de diseño', 7)
+insert into public.tools (id, name, sort_order, url) values
+  ('chatgpt', 'ChatGPT', 1, 'https://chatgpt.com/'),
+  ('claude', 'Claude', 2, 'https://claude.ai/new'),
+  ('gemini', 'Gemini', 3, 'https://gemini.google.com/app'),
+  ('copilot', 'Copilot', 4, 'https://copilot.microsoft.com/'),
+  ('notebooklm', 'NotebookLM', 5, 'https://notebooklm.google.com/'),
+  ('apps-script', 'Google Apps Script', 6, 'https://script.google.com/home'),
+  ('diseno', 'Canva', 7, 'https://www.canva.com/')
 on conflict (id) do update
   set name = excluded.name,
-      sort_order = excluded.sort_order;
+      sort_order = excluded.sort_order,
+      url = excluded.url;
 
 -- Casos de uso del Sprint 2, salidos de las tareas mas pedidas en la encuesta.
--- icon es el nombre de un componente de lucide-react (ver caseIcons en App.jsx).
+-- icon es el nombre de un componente de lucide-react (ver caseIcons en src/components/icons.js).
 insert into public.use_cases (id, title, summary, situation, skill_id, difficulty, estimated_minutes, icon, color, common_mistake, learning_outcome, xp_reward, status, sort_order) values
   (
     'ventas-sin-formulas',
@@ -182,16 +184,28 @@ on conflict (id) do update
       status = excluded.status,
       sort_order = excluded.sort_order;
 
+delete from public.use_case_categories
+where use_case_id in (
+  'ventas-sin-formulas',
+  'reporte-campania',
+  'reunion-seguimiento',
+  'estudiar-material',
+  'documento-presentacion',
+  'imagenes-redes',
+  'automatizar-tarea',
+  'comparar-decidir'
+);
+
 insert into public.use_case_categories (use_case_id, category_id, is_primary) values
-  ('ventas-sin-formulas', 'administracion', true),
-  ('reporte-campania', 'administracion', true),
-  ('reporte-campania', 'vinculacion', false),
-  ('reunion-seguimiento', 'administracion', true),
-  ('estudiar-material', 'explicacion-ia', true),
-  ('documento-presentacion', 'vinculacion', true),
-  ('imagenes-redes', 'diseno', true),
-  ('automatizar-tarea', 'programacion', true),
-  ('comparar-decidir', 'explicacion-ia', true)
+  ('ventas-sin-formulas', 'datos', true),
+  ('reporte-campania', 'contenido', true),
+  ('reporte-campania', 'datos', false),
+  ('reunion-seguimiento', 'organizacion', true),
+  ('estudiar-material', 'estudio', true),
+  ('documento-presentacion', 'presentaciones', true),
+  ('imagenes-redes', 'contenido', true),
+  ('automatizar-tarea', 'automatizacion', true),
+  ('comparar-decidir', 'datos', true)
 on conflict (use_case_id, category_id) do update
   set is_primary = excluded.is_primary;
 
@@ -213,10 +227,10 @@ insert into public.use_case_tools (use_case_id, tool_id, role, reason, sort_orde
   ('estudiar-material', 'chatgpt', 'complement', 'Para armar el plan de estudio y las preguntas de práctica.', 2),
   ('estudiar-material', 'claude', 'complement', 'Para armar el plan de estudio y las preguntas de práctica.', 3),
 
-  ('documento-presentacion', 'gemini', 'primary', 'Integrado en Google Slides, para armar el borrador visual.', 1),
-  ('documento-presentacion', 'copilot', 'primary', 'Integrado en PowerPoint, para armar el borrador visual.', 2),
-  ('documento-presentacion', 'chatgpt', 'complement', 'Para ordenar el contenido antes de pasar al diseño.', 3),
-  ('documento-presentacion', 'claude', 'complement', 'Para ordenar el contenido antes de pasar al diseño.', 4),
+  ('documento-presentacion', 'chatgpt', 'primary', 'Para pegar el pedido y armar primero el esquema de la presentación.', 1),
+  ('documento-presentacion', 'claude', 'primary', 'Para pegar el pedido y armar primero el esquema de la presentación.', 2),
+  ('documento-presentacion', 'gemini', 'complement', 'Después, para pasar el esquema a diapositivas en Google Slides.', 3),
+  ('documento-presentacion', 'copilot', 'complement', 'Después, para pasar el esquema a diapositivas en PowerPoint.', 4),
 
   ('imagenes-redes', 'chatgpt', 'primary', 'Para generar las imágenes.', 1),
   ('imagenes-redes', 'gemini', 'primary', 'Para generar las imágenes.', 2),
@@ -427,3 +441,203 @@ on conflict (use_case_id, letter) do update
   set body = excluded.body,
       is_correct = excluded.is_correct,
       feedback = excluded.feedback;
+
+-- Las categorías viejas quedan sin casos después de reasignar.
+delete from public.categories c
+where c.id in ('administracion', 'vinculacion', 'explicacion-ia', 'diseno', 'programacion')
+  and not exists (
+    select 1 from public.use_case_categories uc where uc.category_id = c.id
+  );
+
+update public.profiles
+   set goal = 'Resolver tareas concretas usando IA, sin tener que saber de antemano qué herramienta elegir.'
+ where id = public.demo_profile_id();
+
+update public.use_cases set output_template = $tpl$Necesito preparar una presentación. Trabajemos primero el contenido, sin diseñar todavía.
+
+Tema o material:
+{{tema}}
+
+Audiencia: {{audiencia}}
+Duración: {{duracion}}
+Cantidad de diapositivas: {{diapositivas}}
+Objetivo: {{objetivo}}
+Tono: {{tono}}
+
+Convertí este material en un esquema de diapositivas.
+Para cada una incluí: título, como máximo 3 ideas y una frase de cierre.
+Después escribí las notas del orador en una o dos oraciones por diapositiva.
+No inventes cifras, nombres ni datos que no estén en el material. Si falta algo, escribí A CONFIRMAR.$tpl$
+where id = 'documento-presentacion';
+
+update public.use_cases set output_template = $tpl$Tengo una planilla de {{herramienta}} en {{idioma}}.
+
+Columnas:
+{{columnas}}
+
+Cantidad aproximada de filas: {{filas}}
+Quiero lograr esto:
+{{objetivo}}
+
+No me des un análisis genérico. Decime qué tiene que calcular la planilla, dame la fórmula lista para pegar y explicala en una línea.
+Indicá en qué celda pegarla.
+Si la planilla está en español, usá punto y coma como separador.
+No incluyas datos personales. Voy a probar la fórmula con 3 filas cuyo resultado ya conozco.$tpl$
+where id = 'ventas-sin-formulas';
+
+update public.use_cases set output_template = $tpl$Necesito un informe de una página sobre una campaña.
+
+Datos que tengo:
+{{datos}}
+
+Quién lo lee: {{lector}}
+Decisión que tiene que tomar: {{objetivo}}
+Tono: {{tono}}
+
+Primero calculá los indicadores que se puedan sacar de estos datos y listá los 3 mejores y los 3 peores resultados.
+No redactes conclusiones que los números no sostengan.
+Después escribí el informe con esta estructura: resumen en 3 líneas, qué funcionó, qué no, y 3 acciones concretas.
+Evitá siglas. Si falta un dato, escribí A CONFIRMAR.$tpl$
+where id = 'reporte-campania';
+
+update public.use_cases set output_template = $tpl$Necesito dejar por escrito una reunión.
+
+Fuente: {{fuente}}
+Contexto:
+{{contexto}}
+
+Qué necesito: {{incluir}}
+Tono: {{tono}}
+
+Si pedí minuta, armala con fecha, asistentes, decisiones, tareas (quién, qué, para cuándo) y temas pendientes.
+No inventes responsables ni fechas. Si falta un dato, escribí A CONFIRMAR.
+Si pedí mail, redactá un correo de seguimiento de unas 120 palabras usando solo lo que está en la minuta.
+Si pedí ambos, hacé primero la minuta y después el mail.$tpl$
+where id = 'reunion-seguimiento';
+
+update public.use_cases set output_template = $tpl$Necesito estudiar este material:
+
+{{material}}
+
+Plazo: {{plazo}}
+Tiempo por día: {{tiempo_diario}}
+Objetivo: {{objetivo}}
+Nivel de partida: {{nivel}}
+
+Empezá por un mapa de los temas, ordenados de lo básico a lo complejo.
+Después explicalos de a uno, con un ejemplo, según mi nivel de partida.
+Cerrá con un plan día por día que entre en el plazo y el tiempo diario, con repasos.
+No agregues temas que no estén en el material. Si algo no está, decilo.$tpl$
+where id = 'estudiar-material';
+
+update public.use_cases set output_template = $tpl$Necesito una imagen para publicar, que no parezca genérica.
+
+Producto o tema:
+{{producto}}
+
+Formato: {{formato}}
+Dónde se publica: {{uso}}
+Estilo: {{estilo}}
+Colores: {{colores}}
+Qué evitar: {{evitar}}
+
+Escribí un pedido visual concreto con sujeto, escenario, luz, estilo, colores y qué no tiene que aparecer.
+No pidas texto ni logos dentro de la imagen: eso se agrega después en una herramienta de diseño.
+Proponé 3 variantes y, entre una y otra, cambiá una sola cosa.$tpl$
+where id = 'imagenes-redes';
+
+update public.use_cases set output_template = $tpl$Necesito automatizar una tarea repetitiva. No sé programar.
+
+Tarea:
+{{tarea}}
+
+De dónde salen los datos: {{origen}}
+A dónde tienen que llegar: {{destino}}
+Cada cuánto: {{cuando}}
+Herramienta: {{herramienta}}
+
+Escribí la solución más simple para esa herramienta y explicala paso a paso, en lenguaje simple.
+Incluí dónde se pega o se configura.
+Antes de ejecutar nada, indícame que lo pruebe en una copia, nunca en el archivo real.
+Si hace falta un permiso, explicá en tres líneas qué estoy autorizando.$tpl$
+where id = 'automatizar-tarea';
+
+update public.use_cases set output_template = $tpl$Tengo que tomar una decisión y justificarla con información actual.
+
+Decisión:
+{{decision}}
+
+Opciones:
+{{opciones}}
+
+Criterios:
+{{criterios}}
+
+Restricción: {{restriccion}}
+
+Activá la búsqueda web.
+Armá una tabla comparativa con estos criterios.
+Citá la fuente de cada dato.
+Después recomendá una opción, decí por qué y qué podría salir mal.
+Si un dato no tiene fuente, no lo uses: escribí SIN FUENTE.$tpl$
+where id = 'comparar-decidir';
+
+delete from public.use_case_fields
+where use_case_id in (
+  'ventas-sin-formulas',
+  'reporte-campania',
+  'reunion-seguimiento',
+  'estudiar-material',
+  'documento-presentacion',
+  'imagenes-redes',
+  'automatizar-tarea',
+  'comparar-decidir'
+);
+
+insert into public.use_case_fields (id, use_case_id, "key", label, type, placeholder, required, position, options, helper_text) values
+  ('documento-presentacion.tema', 'documento-presentacion', 'tema', '¿Qué documento o tema vas a presentar?', 'textarea', 'Pegá el tema o un resumen del documento', true, 1, '{}', 'No hace falta el archivo completo.'),
+  ('documento-presentacion.audiencia', 'documento-presentacion', 'audiencia', '¿A quién se lo vas a presentar?', 'text', 'Por ejemplo, directivos o un docente', true, 2, '{}', null),
+  ('documento-presentacion.duracion', 'documento-presentacion', 'duracion', '¿Cuánto tiempo tenés?', 'select', 'Elegí una opción', true, 3, array['5 minutos', '10 minutos', '15 minutos', '20 minutos o más'], null),
+  ('documento-presentacion.diapositivas', 'documento-presentacion', 'diapositivas', '¿Cuántas diapositivas, aproximadamente?', 'select', 'Elegí una opción', false, 4, array['Que lo decida según la duración', '5 diapositivas', '8 diapositivas', '10 diapositivas', '12 diapositivas', '15 diapositivas'], null),
+  ('documento-presentacion.objetivo', 'documento-presentacion', 'objetivo', '¿Qué tiene que lograr la presentación?', 'select', 'Elegí una opción', true, 5, array['Informar', 'Explicar', 'Convencer', 'Presentar resultados'], null),
+  ('documento-presentacion.tono', 'documento-presentacion', 'tono', '¿Qué tono necesitás?', 'select', 'Elegí una opción', true, 6, array['Académico', 'Profesional', 'Simple', 'Persuasivo'], null),
+
+  ('ventas-sin-formulas.herramienta', 'ventas-sin-formulas', 'herramienta', '¿Dónde está la planilla?', 'select', 'Elegí una opción', true, 1, array['Google Sheets', 'Excel'], null),
+  ('ventas-sin-formulas.idioma', 'ventas-sin-formulas', 'idioma', '¿En qué idioma está la planilla?', 'select', 'Elegí una opción', true, 2, array['Español', 'Inglés'], 'En español los separadores suelen ser punto y coma.'),
+  ('ventas-sin-formulas.columnas', 'ventas-sin-formulas', 'columnas', '¿Qué columnas tiene?', 'textarea', 'Fecha, Vendedor, Producto, Monto, Días de deuda', true, 3, '{}', 'No pegues nombres, mails ni datos bancarios. Con los encabezados alcanza.'),
+  ('ventas-sin-formulas.objetivo', 'ventas-sin-formulas', 'objetivo', '¿Qué necesitás saber?', 'textarea', 'Total por vendedor y marcar deudas de más de 30 días', true, 4, '{}', null),
+  ('ventas-sin-formulas.filas', 'ventas-sin-formulas', 'filas', '¿Cuántas filas tiene, aproximadamente?', 'text', 'Por ejemplo, 600', false, 5, '{}', null),
+
+  ('reporte-campania.datos', 'reporte-campania', 'datos', '¿Qué datos tenés de la campaña?', 'textarea', 'Impresiones, clics, gasto y conversiones de cada anuncio', true, 1, '{}', null),
+  ('reporte-campania.lector', 'reporte-campania', 'lector', '¿Quién va a leer el informe?', 'text', 'Por ejemplo, el dueño de una pyme', true, 2, '{}', null),
+  ('reporte-campania.objetivo', 'reporte-campania', 'objetivo', '¿Qué decisión tiene que tomar?', 'textarea', 'Decidir qué anuncios mantener el mes que viene', true, 3, '{}', null),
+  ('reporte-campania.tono', 'reporte-campania', 'tono', '¿Qué tono tiene que tener?', 'select', 'Elegí una opción', true, 4, array['Simple', 'Profesional', 'Directo'], null),
+
+  ('reunion-seguimiento.fuente', 'reunion-seguimiento', 'fuente', '¿Con qué fuente contás?', 'select', 'Elegí una opción', true, 1, array['Transcripción', 'Apuntes propios'], null),
+  ('reunion-seguimiento.contexto', 'reunion-seguimiento', 'contexto', '¿De qué fue la reunión?', 'textarea', 'Con quién fue y qué se trató', true, 2, '{}', null),
+  ('reunion-seguimiento.incluir', 'reunion-seguimiento', 'incluir', '¿Qué necesitás obtener?', 'select', 'Elegí una opción', true, 3, array['Minuta y mail', 'Solo minuta', 'Solo mail'], null),
+  ('reunion-seguimiento.tono', 'reunion-seguimiento', 'tono', '¿Qué tono tiene que tener el mail?', 'select', 'Elegí una opción', true, 4, array['Cordial', 'Formal', 'Breve'], null),
+
+  ('estudiar-material.material', 'estudiar-material', 'material', '¿Qué tenés que estudiar?', 'textarea', 'Materia, PDF o certificación', true, 1, '{}', 'No pegues el archivo entero. Con el nombre y los temas alcanza.'),
+  ('estudiar-material.plazo', 'estudiar-material', 'plazo', '¿En cuánto tiempo?', 'text', 'Por ejemplo, 14 días', true, 2, '{}', null),
+  ('estudiar-material.tiempo', 'estudiar-material', 'tiempo_diario', '¿Cuánto tiempo por día?', 'select', 'Elegí una opción', true, 3, array['30 minutos', '1 hora', '2 horas'], null),
+  ('estudiar-material.objetivo', 'estudiar-material', 'objetivo', '¿Para qué lo estudiás?', 'text', 'Por ejemplo, aprobar un parcial', true, 4, '{}', null),
+  ('estudiar-material.nivel', 'estudiar-material', 'nivel', '¿Desde dónde partís?', 'select', 'Elegí una opción', true, 5, array['Desde cero', 'Ya sé lo básico', 'Es un repaso'], null),
+
+  ('imagenes-redes.producto', 'imagenes-redes', 'producto', '¿Qué hay que mostrar?', 'textarea', 'El producto o la idea', true, 1, '{}', null),
+  ('imagenes-redes.formato', 'imagenes-redes', 'formato', '¿Qué formato necesitás?', 'select', 'Elegí una opción', true, 2, array['Cuadrado', 'Vertical', 'Horizontal'], null),
+  ('imagenes-redes.uso', 'imagenes-redes', 'uso', '¿Dónde se va a publicar?', 'text', 'Por ejemplo, una historia de Instagram', true, 3, '{}', null),
+  ('imagenes-redes.estilo', 'imagenes-redes', 'estilo', '¿Qué estilo buscás?', 'text', 'Por ejemplo, foto de revista con luz natural', true, 4, '{}', null),
+  ('imagenes-redes.colores', 'imagenes-redes', 'colores', '¿Qué colores tiene que respetar?', 'text', 'Por ejemplo, dorado y blanco', false, 5, '{}', null),
+  ('imagenes-redes.evitar', 'imagenes-redes', 'evitar', '¿Qué no tiene que aparecer?', 'textarea', 'Texto, logos, personas, fondos brillantes', false, 6, '{}', null),
+
+  ('automatizar-tarea.tarea', 'automatizar-tarea', 'tarea', '¿Qué tarea se repite?', 'textarea', 'Qué copiás, desde qué columnas y qué le agregás', true, 1, '{}', null),
+  ('automatizar-tarea.origen', 'automatizar-tarea', 'origen', '¿De dónde salen los datos?', 'text', 'Por ejemplo, la planilla de pedidos', true, 2, '{}', null),
+  ('automatizar-tarea.destino', 'automatizar-tarea', 'destino', '¿A dónde tienen que llegar?', 'text', 'Por ejemplo, la planilla de control', true, 3, '{}', null),
+  ('automatizar-tarea.cuando', 'automatizar-tarea', 'cuando', '¿Cada cuánto?', 'text', 'Por ejemplo, todos los lunes', true, 4, '{}', null),
+  ('automatizar-tarea.herramienta', 'automatizar-tarea', 'herramienta', '¿En qué herramienta está?', 'select', 'Elegí una opción', true, 5, array['Google Sheets', 'Excel', 'Otra'], null),
+
+  ('comparar-decidir.decision', 'comparar-decidir', 'decision', '¿Qué tenés que decidir?', 'textarea', 'La decisión que tenés que justificar', true, 1, '{}', null),
+  ('comparar-decidir.opciones', 'comparar-decidir', 'opciones', '¿Cuáles son las opciones?', 'textarea', 'Dos o tres alternativas', true, 2, '{}', null),
+  ('comparar-decidir.criterios', 'comparar-decidir', 'criterios', '¿Con qué criterios las comparás?', 'textarea', 'Precio, soporte, facilidad, integraciones', true, 3, '{}', null),
+  ('comparar-decidir.restriccion', 'comparar-decidir', 'restriccion', '¿Hay algo que no puede faltar?', 'textarea', 'Una condición obligatoria, si existe', false, 4, '{}', null);

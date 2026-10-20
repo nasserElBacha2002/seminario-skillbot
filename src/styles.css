@@ -111,6 +111,22 @@ a.secondary{text-decoration:none}
 .case-heading-compact h1{font-size:20px;margin:0}
 .case-heading-result{margin-bottom:0}
 .case-heading-result h1{display:none}
+.practice-keys ul,.practice-close ul{margin:12px 0 18px;padding:0;list-style:none;display:grid;gap:8px}
+.practice-keys li,.practice-close li{font-size:14px;line-height:1.45;color:#3c3a4f}
+.practice-keys .primary,.practice-round .confirm,.practice-round .case-actions .primary{margin-top:8px}
+.practice-progress{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;color:#675be2;font-size:13px;font-weight:700}
+.practice-progress i{display:flex;gap:6px}
+.practice-progress b{width:28px;height:6px;border-radius:99px;background:#e6e4f2}
+.practice-progress b.on{background:#675be2}
+.practice-scenario p{white-space:pre-wrap;font-size:14px;line-height:1.5;color:#3c3a4f}
+.practice-question{font-size:18px;margin:18px 0 12px}
+.practice-close{margin-bottom:22px}
+.practice-close h2,.practice-round h2{font-size:26px}
+.situation-note{background:#f7f6fb;border:1px solid #e7e6ef;border-radius:14px;padding:14px 16px;margin-top:14px}
+.situation-note p:last-child{margin-top:6px;font-size:14px;line-height:1.5;color:#3c3a4f}
+.case-meta span.practice-mark{color:#8a6a12;font-weight:700}
+.option{min-height:44px}
+@media(max-width:570px){.practice-round .confirm,.practice-round .case-actions .primary,.practice-keys .primary{width:100%}}
 .case-heading h1{font-size:28px}
 .case-heading .hero-tool-icon{width:52px;height:52px;border-radius:14px}
 .case-kicker{font-size:13px;font-weight:600;color:#675be2}

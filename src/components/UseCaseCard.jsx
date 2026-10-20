@@ -6,8 +6,11 @@ import { ProgressBar } from './Layout'
 export function UseCaseCard({ item, onOpen }) {
   const { data } = useSkillbotData()
   const Icon = caseIcon(item)
-  const progress = data.progress[item.id]?.progress ?? 0
-  const partial = progress > 0 && progress < 100
+  const entry = data.progress[item.id]
+  const progress = entry?.progress ?? 0
+  const completed = entry?.status === 'completed' || progress === 100
+  const started = !completed && (progress > 0 || entry?.status === 'in_progress')
+  const label = completed ? 'Abrir' : 'Practicar'
   return (
     <article className="use-case-card">
       <div className="use-case-top">
@@ -17,21 +20,22 @@ export function UseCaseCard({ item, onOpen }) {
       <h3>
         <button type="button" className="card-hit" onClick={() => onOpen(item.id)}>
           {item.title}
-          <span className="sr-only">. Abrir</span>
+          <span className="sr-only">. {label}</span>
         </button>
       </h3>
       <p>{item.description}</p>
       <div className="case-meta">
         <span>{item.estimatedTime} · {item.difficulty}</span>
-        {progress === 100 && <span className="done-mark">✓ Resuelto</span>}
+        {completed && <span className="done-mark">✓ Completado</span>}
+        {started && <span className="practice-mark">En práctica</span>}
+        {!completed && !started && <span>Nuevo</span>}
       </div>
-      {partial && (
+      {started && (
         <div className="card-progress">
           <ProgressBar value={progress} />
-          <b>{progress}%</b>
         </div>
       )}
-      <span className="card-action">Abrir <ArrowRight size={15} /></span>
+      <span className="card-action">{label} <ArrowRight size={15} /></span>
     </article>
   )
 }

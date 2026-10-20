@@ -1,9 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  completePracticeChallenge,
   fetchSkillbotData,
   markActivityToday,
-  recordChallengeAttempt,
-  resolveUseCase,
   saveUseCaseProgress,
   setStepDone,
   toDayString,
@@ -115,28 +114,31 @@ export function SkillbotDataProvider({ children }) {
     setData(await loadWithAchievements())
   }, [])
 
-  // La base decide si corresponde XP. El cliente no mira el progreso cacheado.
-  const awardFirstResolution = useCallback(async (useCase) => {
-    const awarded = await resolveUseCase(useCase.id, toDayString(new Date()))
+  const beginPractice = useCallback(async (useCase) => {
+    const current = dataRef.current
+    if (current?.progress[useCase.id]?.status === 'completed') return
+    const currentProgress = current?.progress[useCase.id]?.progress ?? 0
+    await saveUseCaseProgress(useCase.id, Math.max(currentProgress, 10))
+    await markActivityToday()
+    setData(await loadWithAchievements())
+  }, [])
+
+  // El XP lo decide la base, una vez por desafío. Copiar o abrir una IA no pasa por acá.
+  const finishChallenge = useCallback(async ({ useCase, position, selectedOption, isCorrect }) => {
+    const awarded = await completePracticeChallenge({
+      useCaseId: useCase.id,
+      position,
+      selected: selectedOption,
+      correct: isCorrect,
+      day: toDayString(new Date()),
+    })
+    setData(await loadWithAchievements())
     return Number(awarded) || 0
   }, [])
 
-  const markResolved = useCallback(async (useCase) => {
-    const xpEarned = await awardFirstResolution(useCase)
-    setData(await loadWithAchievements())
-    return xpEarned
-  }, [awardFirstResolution])
-
-  const completeChallenge = useCallback(async ({ useCase, selectedOption, isCorrect }) => {
-    const xpEarned = isCorrect ? await awardFirstResolution(useCase) : 0
-    await recordChallengeAttempt({ useCaseSlug: useCase.id, selectedOption, isCorrect, xpEarned })
-    if (isCorrect) setData(await loadWithAchievements())
-    return xpEarned
-  }, [awardFirstResolution])
-
   const value = useMemo(
-    () => ({ data, loading: !data && !error, error, reload, toggleStep, completeChallenge, markResolved }),
-    [data, error, reload, toggleStep, completeChallenge, markResolved],
+    () => ({ data, loading: !data && !error, error, reload, toggleStep, beginPractice, finishChallenge }),
+    [data, error, reload, toggleStep, beginPractice, finishChallenge],
   )
 
   return <SkillbotDataContext.Provider value={value}>{children}</SkillbotDataContext.Provider>

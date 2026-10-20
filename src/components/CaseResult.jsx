@@ -9,7 +9,7 @@ function arrangeTools(tools) {
   return { recommended, others: usable.filter((tool) => tool !== recommended) }
 }
 
-export function CaseResult({ text, tools, xpNote, saveError, onEdit, onBack }) {
+export function CaseResult({ text, tools, situation, xpNote, saveError, onEdit, onBack }) {
   const [notice, setNotice] = useState('')
   const [copied, setCopied] = useState(false)
   const { recommended, others } = arrangeTools(tools)
@@ -32,8 +32,14 @@ export function CaseResult({ text, tools, xpNote, saveError, onEdit, onBack }) {
 
   return (
     <div className="case-result">
-      <h2>Tu pedido está listo</h2>
-      <p className="result-lead">Armamos este pedido con los datos que completaste.</p>
+      <h2>Tu pedido mejorado</h2>
+      <p className="result-lead">Lo armamos con lo que contaste y con lo que conviene mirar en este tipo de tarea.</p>
+      {situation && (
+        <article className="situation-note">
+          <p className="case-kicker">Tu situación</p>
+          <p>{situation}</p>
+        </article>
+      )}
       <pre className="result-text">{text}</pre>
       <div className="case-actions">
         <button type="button" className="primary" onClick={copy}>
@@ -42,7 +48,7 @@ export function CaseResult({ text, tools, xpNote, saveError, onEdit, onBack }) {
       </div>
       {recommended && (
         <section className="recommended-pick">
-          <p className="rec-kicker">Herramienta recomendada</p>
+          <p className="rec-kicker">Llevalo a la práctica</p>
           <h3>{recommended.name}</h3>
           {recommended.reason && <p>{recommended.reason}</p>}
           <button type="button" className="primary" onClick={() => openTool(recommended)}>

@@ -44,7 +44,8 @@ El schema vive en [supabase/migrations/](supabase/migrations/) y los datos inici
 3. Pegar y ejecutar [supabase/migrations/20261012230000_use_case_catalog.sql](supabase/migrations/20261012230000_use_case_catalog.sql).
 4. Pegar y ejecutar [supabase/migrations/20261020210000_guided_resolution.sql](supabase/migrations/20261020210000_guided_resolution.sql).
 5. Pegar y ejecutar [supabase/migrations/20261020223000_resolve_use_case.sql](supabase/migrations/20261020223000_resolve_use_case.sql).
-6. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
+6. Pegar y ejecutar [supabase/migrations/20261021010000_practice_challenges.sql](supabase/migrations/20261021010000_practice_challenges.sql).
+7. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
 
 ⚠️ La migración del catálogo **borra el progreso del perfil demo** (XP, logros, habilidades, racha y avance), porque apuntaba a los casos viejos de `src/data.js`, que ya no existen.
 
@@ -53,7 +54,7 @@ Para copiar al portapapeles sin abrir los archivos (macOS): `pbcopy < supabase/s
 Si después querés usar el CLI, hay que avisarle que esas migraciones ya corrieron, porque aplicarlas por el editor no las registra en el historial:
 
 ```bash
-supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000
+supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000
 ```
 
 ### Opción B: Supabase CLI
@@ -114,7 +115,7 @@ Diecinueve tablas, todas con RLS activado.
 | `challenge_attempts` | Historial de respuestas a los desafíos |
 | `activity_days` | Una fila por día practicado; de acá se derivan la racha y la grilla semanal |
 
-`resolve_use_case(use_case_id, day)` marca el caso, suma el XP del caso y sube la habilidad en una sola transacción. Llama a `add_xp`, que reajusta el nivel. Una segunda resolución del mismo caso no vuelve a sumar XP.
+`complete_practice_challenge(use_case_id, position, selected, correct, day)` suma el XP de un desafío una sola vez. Al terminar los tres, suma el bonus, marca el caso y sube la habilidad. Copiar el pedido o abrir una herramienta no suma XP. Si el caso ya estaba completado, no se vuelve a pagar.
 
 ### Sobre RLS y el login
 
@@ -151,7 +152,7 @@ Los casos viven en la base y se cargan desde [supabase/seed.sql](supabase/seed.s
 - Un paso con `requires_confirmation` bloquea los pasos siguientes y el desafío hasta que el usuario lo confirma con el texto de `confirmation_label` (por ejemplo, "Hice una copia de la planilla").
 - Los casos con `status = 'reserve'` no le llegan a la app.
 
-**Progreso de un caso:** cada paso marcado suma hasta el 80%. El 100% y el XP se otorgan la primera vez que se genera el resultado o se acierta el desafío, dentro de `resolve_use_case`. `src/data/guidedCases.js` es un respaldo temporal mientras la base no tenga las columnas nuevas. Después de aplicar las migraciones y el seed, hay que eliminarlo: el catálogo vive solo en Supabase.
+**Progreso de un caso:** queda en práctica al empezar y se completa al terminar los 3 desafíos. El XP se otorga ahí, no al armar el pedido. `src/data/guidedCases.js` y `src/data/practiceChallenges.js` son un respaldo temporal mientras la base no tenga la migración `20261021010000`. Después de aplicar las migraciones y el seed, el catálogo vive en Supabase.
 
 Las tablas de progreso tienen foreign key hacia `use_cases`, así que no pueden quedar filas apuntando a casos que no existen. Las opciones del desafío se leen con `is_correct` incluido porque la corrección se hace en el frontend: en la demo, la respuesta es visible para quien inspeccione la red.
 

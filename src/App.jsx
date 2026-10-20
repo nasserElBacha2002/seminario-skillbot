@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { SkillbotDataProvider, useSkillbotData } from './context/SkillbotData'
 import { Boot, BootError } from './components/Boot'
 import { rememberCase } from './lib/storage'
-import { ChallengePage } from './pages/ChallengePage'
 import { ExplorePage } from './pages/ExplorePage'
 import { HomePage } from './pages/HomePage'
 import { Login } from './pages/Login'
@@ -36,9 +35,7 @@ function Shell({ onLogout }) {
 
   if (page === 'inicio') return <HomePage setPage={setPage} openCase={openCase} />
   if (page === 'explorar') return <ExplorePage setPage={setPage} openCase={openCase} />
-  if (page === 'detalle') return <UseCasePage setPage={setPage} useCase={useCase} origin={origin} />
-  if (page === 'desafio' && useCase.challenge) return <ChallengePage setPage={setPage} useCase={useCase} />
-  if (page === 'desafio') return <UseCasePage setPage={setPage} useCase={useCase} origin={origin} />
+  if (page === 'detalle' || page === 'desafio') return <UseCasePage setPage={setPage} useCase={useCase} origin={origin} />
   if (page === 'progreso') return <ProgressPage setPage={setPage} />
   return <ProfilePage setPage={setPage} onLogout={onLogout} />
 }

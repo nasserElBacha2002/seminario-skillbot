@@ -11,7 +11,7 @@ export function HomePage({ setPage, openCase }) {
       <section className="page home-page">
         <div className="hero-copy">
           <h1>¿Qué querés resolver?</h1>
-          <p>Completá unos datos y te llevás un pedido listo para usar.</p>
+          <p>Elegí una situación, practicá cómo resolverla con IA y aprendé a detectar errores antes de usar el resultado.</p>
         </div>
         <CaseBrowser searchId="home-search" onOpen={(id) => openCase(id, 'inicio')} />
         {recent && (
@@ -21,7 +21,7 @@ export function HomePage({ setPage, openCase }) {
           </button>
         )}
         <p className="home-side">
-          <span>{data.completedCount} casos resueltos · {data.profile.xp} XP</span>
+          <span>{data.completedCount} prácticas completadas · {data.profile.xp} XP</span>
           <button type="button" className="text-button" onClick={() => setPage('progreso')}>Ver progreso</button>
         </p>
       </section>

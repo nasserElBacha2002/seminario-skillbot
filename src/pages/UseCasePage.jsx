@@ -1,68 +1,112 @@
 import { useEffect, useState } from 'react'
 import { caseIcon } from '../components/icons'
 import { CaseResult } from '../components/CaseResult'
-import { CaseSteps } from '../components/CaseSteps'
 import { DynamicCaseForm } from '../components/DynamicCaseForm'
 import { Layout } from '../components/Layout'
+import { closingLine, PracticeRound } from '../components/PracticeRound'
 import { useSkillbotData } from '../context/SkillbotData'
 import { fillTemplate, unresolvedPlaceholders } from '../lib/template'
 import { loadDraft, loadResult, rememberCase, saveResult } from '../lib/storage'
 
-function hasContent(values) {
-  return Object.values(values ?? {}).some((value) => String(value).trim())
+function practiceFieldsOf(useCase) {
+  const fields = useCase.fields.filter((field) => field.practice)
+  const source = fields.length ? fields : useCase.fields.slice(0, 3)
+  return [...source].sort((a, b) => (a.practiceOrder ?? 99) - (b.practiceOrder ?? 99))
+}
+
+function openAnswer(useCase, values) {
+  const field = practiceFieldsOf(useCase).find((item) => item.type === 'textarea')
+  return field ? String(values?.[field.key] ?? '').trim() : ''
+}
+
+function buildPrompt(useCase, values) {
+  const shown = new Set(practiceFieldsOf(useCase).map((field) => field.key))
+  const optionalKeys = useCase.fields
+    .filter((field) => !shown.has(field.key) || !field.required)
+    .map((field) => field.key)
+  return fillTemplate(useCase.outputTemplate, values, optionalKeys).trim()
 }
 
 export function UseCasePage({ setPage, useCase, origin }) {
-  const { markResolved } = useSkillbotData()
+  const { data, beginPractice, finishChallenge } = useSkillbotData()
   const Icon = caseIcon(useCase)
+  const progress = data.progress[useCase.id]
+  const completed = progress?.status === 'completed' || progress?.progress === 100
+  const practiceFields = practiceFieldsOf(useCase)
+  const practiceCase = { ...useCase, fields: practiceFields }
+  const challenges = useCase.challenges ?? []
   const [stage, setStage] = useState('intro')
-  const [resultText, setResultText] = useState(() => loadResult(useCase.id)?.text ?? '')
-  const [xpNote, setXpNote] = useState('')
+  const [round, setRound] = useState(0)
+  const [earned, setEarned] = useState(0)
+  const [awardError, setAwardError] = useState(null)
+  const [resultText, setResultText] = useState('')
+  const [situation, setSituation] = useState('')
   const [saveError, setSaveError] = useState(null)
-  const [templateError, setTemplateError] = useState('')
-  const ready = useCase.fields.length > 0 && Boolean(useCase.outputTemplate)
+  const ready = practiceFields.length > 0 && challenges.length === 3 && Boolean(useCase.outputTemplate)
 
   useEffect(() => {
     rememberCase(useCase.id)
     setStage('intro')
-    setResultText(loadResult(useCase.id)?.text ?? '')
-    setXpNote('')
+    setRound(0)
+    setEarned(0)
+    setAwardError(null)
+    setResultText('')
+    setSituation('')
     setSaveError(null)
-    setTemplateError('')
   }, [useCase.id])
 
-  async function generate(nextValues) {
-    const optionalKeys = useCase.fields.filter((field) => !field.required).map((field) => field.key)
-    const text = fillTemplate(useCase.outputTemplate, nextValues, optionalKeys).trim()
+  function start() {
+    setSaveError(null)
+    setStage('context')
+    beginPractice(useCase).catch((error) => setSaveError(error))
+  }
+
+  function saveContext(values) {
+    const text = buildPrompt(useCase, values)
     if (!text || unresolvedPlaceholders(text).length) {
-      setTemplateError('No se pudo armar el pedido con estos datos.')
+      setSaveError({ message: 'No se pudo preparar el caso con estos datos.' })
       return
     }
-    setResultText(text)
-    saveResult(useCase.id, text, nextValues)
-    setStage('result')
-    setTemplateError('')
-    setSaveError(null)
+    setSituation(openAnswer(useCase, values))
+    setStage('keys')
+  }
+
+  function showResult() {
+    const values = loadDraft(useCase.id) ?? {}
+    const text = buildPrompt(useCase, values)
+    const stored = !text || unresolvedPlaceholders(text).length ? loadResult(useCase.id)?.text ?? '' : text
+    if (stored) saveResult(useCase.id, stored, values)
+    setResultText(stored)
+    setSituation(openAnswer(useCase, values))
+    setStage('done')
+  }
+
+  async function answer(payload) {
     try {
-      const xp = await markResolved(useCase)
-      setXpNote(xp > 0 ? `Sumaste ${xp} XP.` : '')
+      const xp = await finishChallenge({ useCase, ...payload })
+      setEarned((current) => current + xp)
+      return xp
     } catch (error) {
-      setSaveError(error)
+      setAwardError(error)
+      throw error
     }
   }
+
+  const compact = stage !== 'intro'
+  const hideTitle = stage === 'done'
 
   return (
     <Layout page="detalle" setPage={setPage}>
       <section className="page case-flow">
         <button type="button" className="back" onClick={() => setPage(origin || 'inicio')}>← Volver</button>
-        <div className={`case-heading${stage === 'intro' ? '' : ' case-heading-compact'}${stage === 'result' ? ' case-heading-result' : ''}`}>
+        <div className={`case-heading${compact ? ' case-heading-compact' : ''}${hideTitle ? ' case-heading-result' : ''}`}>
           <span className={`hero-tool-icon tool-icon ${useCase.color}`}><Icon size={28} /></span>
           <div>
             <p className="case-kicker">{useCase.category}</p>
             <h1>{useCase.title}</h1>
             <p>{useCase.description}</p>
             <p className="case-facts">{useCase.estimatedTime} · Dificultad {String(useCase.difficulty).toLocaleLowerCase('es')}</p>
-            <p className="case-outcome">Te llevás un pedido listo para usar.</p>
+            {useCase.learning && <p className="case-outcome">Vas a aprender: {useCase.learning}</p>}
           </div>
         </div>
 
@@ -74,60 +118,88 @@ export function UseCasePage({ setPage, useCase, origin }) {
             </article>
             {ready ? (
               <div className="case-actions">
-                <button type="button" className="primary" onClick={() => setStage('form')}>
-                  {hasContent(loadDraft(useCase.id)) ? 'Continuar con tus datos' : 'Armar mi solución'}
+                <button type="button" className="primary" onClick={start}>
+                  {completed ? 'Repetir práctica' : progress?.progress > 0 ? 'Continuar práctica' : 'Empezar práctica'}
                 </button>
-                {resultText && (
-                  <button type="button" className="secondary" onClick={() => setStage('result')}>Ver el pedido anterior</button>
+                {completed && loadResult(useCase.id)?.text && (
+                  <button type="button" className="secondary" onClick={showResult}>Ver mi pedido</button>
                 )}
               </div>
             ) : (
-              <p className="save-error">Este caso todavía no tiene una solución guiada.</p>
+              <p className="save-error">Este caso todavía no tiene la práctica armada.</p>
             )}
+            {saveError && <p className="save-error" role="alert">{saveError.message}</p>}
           </>
         )}
 
-        {stage === 'form' && (
+        {stage === 'context' && (
           <>
             <h2 className="flow-title">Contanos tu caso</h2>
-            <p className="flow-lead">Con estos datos armamos el pedido. La herramienta aparece al final.</p>
-            {templateError && <p className="save-error" role="alert">{templateError}</p>}
+            <p className="flow-lead">Con esto practicamos sobre tu situación. El pedido se arma después de los desafíos.</p>
             <DynamicCaseForm
-              key={`${useCase.id}-${stage}`}
-              useCase={useCase}
+              key={`${useCase.id}-context`}
+              useCase={practiceCase}
               initialValues={loadDraft(useCase.id)}
-              submitLabel="Armar mi pedido"
-              onSubmit={generate}
+              submitLabel="Continuar"
+              onSubmit={saveContext}
               onCancel={() => setStage('intro')}
             />
           </>
         )}
 
-        {stage === 'result' && (
-          <CaseResult
-            text={resultText}
-            tools={useCase.tools}
-            xpNote={xpNote}
-            saveError={saveError}
-            onEdit={() => setStage('form')}
-            onBack={() => setStage('intro')}
+        {stage === 'keys' && (
+          <section className="practice-keys">
+            <h2 className="flow-title">Antes de empezar</h2>
+            <ul>
+              {(useCase.keys ?? []).slice(0, 4).map((key) => <li key={key}>{key}</li>)}
+            </ul>
+            <button type="button" className="primary" onClick={() => { setRound(0); setStage('practice') }}>
+              Empezar el primer desafío
+            </button>
+          </section>
+        )}
+
+        {stage === 'practice' && challenges[round] && (
+          <PracticeRound
+            key={`${useCase.id}-${round}`}
+            challenge={challenges[round]}
+            index={round}
+            total={challenges.length}
+            onAnswer={answer}
+            onContinue={() => {
+              if (round < challenges.length - 1) setRound(round + 1)
+              else showResult()
+            }}
           />
         )}
 
-        {stage === 'result' && useCase.steps.length > 0 && (
-          <details className="help-panel">
-            <summary>Cómo usar esta solución</summary>
-            <p className="help-note">{useCase.learning}</p>
-            <p className="help-note">{useCase.mistake}</p>
-            <CaseSteps useCase={useCase} />
-          </details>
-        )}
-
-        {stage === 'result' && useCase.challenge && (
-          <div className="optional-practice">
-            <button type="button" className="text-button" onClick={() => setPage('desafio')}>Practicar lo aprendido</button>
-            <p>Opcional. No hace falta para obtener el pedido.</p>
-          </div>
+        {stage === 'done' && (
+          <>
+            <section className="practice-close">
+              <h2>Práctica completada</h2>
+              <p>Terminaste los 3 desafíos y ya sabés qué mirar antes de confiar en un pedido o en una respuesta de IA.</p>
+              <ul>
+                {challenges.map((challenge) => <li key={challenge.position}>✓ {closingLine(challenge)}</li>)}
+              </ul>
+              {earned > 0 ? (
+                <p className="earned">+{earned} XP</p>
+              ) : awardError ? (
+                <p className="result-note">Terminaste la práctica. El XP no se pudo guardar: falta aplicar la migración de desafíos. Cuando esté, repetí la práctica para sumarlo una sola vez.</p>
+              ) : (
+                <p className="result-note">Esta práctica no sumó XP nuevo. La recompensa de cada desafío se entrega una sola vez.</p>
+              )}
+            </section>
+            {resultText && (
+              <CaseResult
+                text={resultText}
+                situation={situation}
+                tools={useCase.tools}
+                saveError={saveError}
+                onEdit={() => setStage('context')}
+                onBack={() => setStage('intro')}
+              />
+            )}
+          </>
         )}
       </section>
     </Layout>

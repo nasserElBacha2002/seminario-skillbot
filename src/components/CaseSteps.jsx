@@ -1,28 +1,13 @@
 import { useState } from 'react'
-import { Check, Copy, Lock, TriangleAlert } from 'lucide-react'
+import { Check, Lock, TriangleAlert } from 'lucide-react'
 import { useSkillbotData } from '../context/SkillbotData'
-import { copyText } from '../lib/clipboard'
 import { stepStates } from '../lib/steps'
 
 export function CaseSteps({ useCase }) {
   const { data, toggleStep } = useSkillbotData()
-  const [copied, setCopied] = useState(null)
-  const [copyError, setCopyError] = useState(null)
   const [busy, setBusy] = useState(null)
   const [saveError, setSaveError] = useState(null)
   const { steps, blockedBy } = stepStates(useCase, data.doneSteps[useCase.id])
-
-  async function copy(position, text) {
-    setCopyError(null)
-    const ok = await copyText(text)
-    if (!ok) {
-      setCopyError(position)
-      setCopied(null)
-      return
-    }
-    setCopied(position)
-    setTimeout(() => setCopied((current) => (current === position ? null : current)), 1600)
-  }
 
   async function toggle(step) {
     if (step.locked || busy !== null) return
@@ -45,15 +30,14 @@ export function CaseSteps({ useCase }) {
             <b aria-hidden="true">{step.done ? <Check size={14} /> : step.position}</b>
             <div>
               <p>{step.body}</p>
+              {/* Se muestra para leer, no para copiar: el pedido que se copia es el que se arma al final. */}
               {step.prompt && (
                 <div className="step-prompt">
+                  <small>Así lo podrías pedir</small>
                   <p>“{step.prompt}”</p>
-                  <button type="button" onClick={() => copy(step.position, step.prompt)}>
-                    <Copy size={14} />{copied === step.position ? 'Copiado' : 'Copiar ejemplo'}
-                  </button>
+                  <small className="step-prompt-hint">Adaptalo con los datos de tu caso.</small>
                 </div>
               )}
-              {copyError === step.position && <small className="field-error">No se pudo copiar. Seleccioná el texto del ejemplo.</small>}
               {step.locked ? (
                 <small className="step-locked"><Lock size={12} /> Confirmá el paso {blockedBy} para seguir.</small>
               ) : (

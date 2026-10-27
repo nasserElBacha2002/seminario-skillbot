@@ -191,3 +191,10 @@ a.secondary{text-decoration:none}
   .daily-copy{min-width:calc(100% - 62px)}
   .daily-card .primary{width:100%}
 }
+
+.login-divider{display:flex;align-items:center;gap:10px;margin:16px 0 12px;color:#918e9f;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.login-divider:before,.login-divider:after{content:"";flex:1;height:1px;background:#e2e1e9}
+.google-button{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:10px;background:#fff;border:1px solid #e2e1e9;border-radius:10px;padding:12px 13px;color:#454257;font-weight:700;font-size:14px;cursor:pointer}
+.google-button:hover{background:#f7f6fb}
+.google-button:disabled{opacity:.6;cursor:not-allowed}
+.google-button svg{flex:none}

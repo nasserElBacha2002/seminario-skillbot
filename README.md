@@ -50,7 +50,8 @@ El schema vive en [supabase/migrations/](supabase/migrations/) y los datos inici
 9. Pegar y ejecutar [supabase/migrations/20261027130000_profile_initials.sql](supabase/migrations/20261027130000_profile_initials.sql).
 10. Pegar y ejecutar [supabase/migrations/20261027140000_secure_progress_writes.sql](supabase/migrations/20261027140000_secure_progress_writes.sql).
 11. Pegar y ejecutar [supabase/migrations/20261027150000_update_profile_name.sql](supabase/migrations/20261027150000_update_profile_name.sql).
-12. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
+12. Pegar y ejecutar [supabase/migrations/20261027160000_harden_update_profile_name.sql](supabase/migrations/20261027160000_harden_update_profile_name.sql).
+13. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
 
 La activación de Auth (Email provider, Site URL, usuarios de prueba) está en [SUPABASE_SETUP.md](SUPABASE_SETUP.md).
 
@@ -61,7 +62,7 @@ Para copiar al portapapeles sin abrir los archivos (macOS): `pbcopy < supabase/s
 Si después querés usar el CLI, hay que avisarle que esas migraciones ya corrieron, porque aplicarlas por el editor no las registra en el historial:
 
 ```bash
-supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000 20261027150000
+supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000 20261027150000 20261027160000
 ```
 
 ### Opción B: Supabase CLI

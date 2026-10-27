@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowRight, LoaderCircle } from 'lucide-react'
 import { AuthLayout } from '../components/AuthLayout'
+import { GoogleButton } from '../components/GoogleButton'
 import { Logo } from '../components/Layout'
 import { useAuth } from '../context/Auth'
 
@@ -21,10 +22,11 @@ function loginMessage(error) {
 }
 
 export function Login({ email, onEmailChange, onRegister, onForgot }) {
-  const { signIn } = useAuth()
+  const { signIn, authNotice } = useAuth()
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const displayError = error || authNotice
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -92,12 +94,14 @@ export function Login({ email, onEmailChange, onRegister, onForgot }) {
         >
           Olvidé mi contraseña
         </button>
-        {error && <p className="login-error" role="alert">{error}</p>}
+        {displayError && <p className="login-error" role="alert">{displayError}</p>}
         <button type="submit" className="primary login-button" disabled={submitting} aria-busy={submitting}>
           {submitting ? <LoaderCircle size={18} className="spin" /> : null}
           {submitting ? 'Entrando…' : 'Entrar'}
           {submitting ? null : <ArrowRight size={18} />}
         </button>
+        <div className="login-divider" role="separator">o</div>
+        <GoogleButton disabled={submitting} onError={setError} />
         <p className="login-switch">
           ¿No tenés cuenta?{' '}
           <button

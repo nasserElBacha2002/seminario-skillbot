@@ -4,23 +4,75 @@ import { setStorageOwner } from '../lib/storage'
 
 const AuthContext = createContext(null)
 
+function oauthCallbackMessage() {
+  const search = new URLSearchParams(window.location.search)
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const error = search.get('error') || hash.get('error')
+  if (!error) return ''
+  const code = String(search.get('error_code') || hash.get('error_code') || error).toLowerCase()
+  if (code.includes('access_denied')) return 'Cancelaste el acceso con Google.'
+  return 'No pudimos completar el acceso con Google. Intentá nuevamente.'
+}
+
+function isOAuthCallbackFailure(error) {
+  const name = String(error?.name ?? '')
+  const code = String(error?.code ?? '').toLowerCase()
+  return name === 'AuthImplicitGrantRedirectError' || code.includes('access_denied')
+}
+
+export function canChangePassword(user) {
+  const identities = Array.isArray(user?.identities) ? user.identities : []
+  if (identities.length > 0) {
+    return identities.some((item) => String(item.provider).toLowerCase() === 'email')
+  }
+  const providers = user?.app_metadata?.providers
+  if (Array.isArray(providers) && providers.length > 0) {
+    return providers.map((item) => String(item).toLowerCase()).includes('email')
+  }
+  const provider = String(user?.app_metadata?.provider ?? '').toLowerCase()
+  if (provider) return provider === 'email'
+  return true
+}
+
+export function isReauthenticationError(error) {
+  const code = String(error?.code ?? '').toLowerCase()
+  const text = String(error?.message ?? '').toLowerCase()
+  return (
+    code === 'reauthentication_needed'
+    || code === 'insufficient_aal'
+    || text.includes('reauthentication')
+    || text.includes('re-authenticate')
+    || text.includes('reauthenticate')
+    || text.includes('recent login')
+    || text.includes('recent authentication')
+  )
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [passwordRecovery, setPasswordRecovery] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [authNotice, setAuthNotice] = useState('')
 
   useEffect(() => {
     let cancelled = false
     let leaveBoot
+    const notice = oauthCallbackMessage()
+    if (notice) setAuthNotice(notice)
 
     supabase.auth.getSession()
       .then(({ data, error: sessionError }) => {
         if (cancelled) return
         if (sessionError) {
-          setError(sessionError)
           setSession(null)
           setStorageOwner(null)
+          if (isOAuthCallbackFailure(sessionError)) {
+            setError(null)
+            setAuthNotice((current) => current || 'No pudimos completar el acceso con Google. Intentá nuevamente.')
+          } else {
+            setError(sessionError)
+          }
           setLoading(false)
           return
         }
@@ -30,9 +82,14 @@ export function AuthProvider({ children }) {
       })
       .catch((sessionError) => {
         if (cancelled) return
-        setError(sessionError)
         setSession(null)
         setStorageOwner(null)
+        if (isOAuthCallbackFailure(sessionError)) {
+          setError(null)
+          setAuthNotice((current) => current || 'No pudimos completar el acceso con Google. Intentá nuevamente.')
+        } else {
+          setError(sessionError)
+        }
         setLoading(false)
       })
 
@@ -40,6 +97,7 @@ export function AuthProvider({ children }) {
       if (cancelled) return
       if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true)
       if (event === 'SIGNED_OUT') setPasswordRecovery(false)
+      if (event === 'SIGNED_IN') setAuthNotice('')
       setSession(nextSession)
       setStorageOwner(nextSession?.user?.id ?? null)
       setError(null)
@@ -102,6 +160,17 @@ export function AuthProvider({ children }) {
     return data
   }, [])
 
+  const signInWithGoogle = useCallback(async () => {
+    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    })
+    if (oauthError) throw oauthError
+    return data
+  }, [])
+
   const completePasswordRecovery = useCallback(() => {
     setPasswordRecovery(false)
   }, [])
@@ -135,15 +204,17 @@ export function AuthProvider({ children }) {
       passwordRecovery,
       loading,
       error,
+      authNotice,
       signIn,
       signUp,
+      signInWithGoogle,
       signOut,
       resetPasswordForEmail,
       updatePassword,
       completePasswordRecovery,
       reload,
     }),
-    [session, passwordRecovery, loading, error, signIn, signUp, signOut, resetPasswordForEmail, updatePassword, completePasswordRecovery, reload],
+    [session, passwordRecovery, loading, error, authNotice, signIn, signUp, signInWithGoogle, signOut, resetPasswordForEmail, updatePassword, completePasswordRecovery, reload],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

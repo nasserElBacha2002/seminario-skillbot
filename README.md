@@ -48,18 +48,19 @@ El schema vive en [supabase/migrations/](supabase/migrations/) y los datos inici
 7. Pegar y ejecutar [supabase/migrations/20261021020000_award_xp_on_correct.sql](supabase/migrations/20261021020000_award_xp_on_correct.sql).
 8. Pegar y ejecutar [supabase/migrations/20261027120000_supabase_auth.sql](supabase/migrations/20261027120000_supabase_auth.sql).
 9. Pegar y ejecutar [supabase/migrations/20261027130000_profile_initials.sql](supabase/migrations/20261027130000_profile_initials.sql).
-10. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
+10. Pegar y ejecutar [supabase/migrations/20261027140000_secure_progress_writes.sql](supabase/migrations/20261027140000_secure_progress_writes.sql).
+11. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
 
 La activación de Auth (Email provider, Site URL, usuarios de prueba) está en [SUPABASE_SETUP.md](SUPABASE_SETUP.md).
 
-⚠️ La migración del catálogo **borra el progreso del perfil demo** (XP, logros, habilidades, racha y avance), porque apuntaba a los casos viejos de `src/data.js`, que ya no existen. La migración `20261027120000_supabase_auth` además **elimina el perfil demo**: el progreso pasa a ser por cuenta de Auth.
+⚠️ La migración del catálogo **borra el progreso del perfil demo** (XP, logros, habilidades, racha y avance), porque apuntaba a los casos viejos de `src/data.js`, que ya no existen. La migración `20261027120000_supabase_auth` además **elimina el perfil demo** (y, por `ON DELETE CASCADE`, su progreso). El progreso pasa a ser por cuenta de Auth. El impacto está documentado en [SUPABASE_SETUP.md](SUPABASE_SETUP.md).
 
 Para copiar al portapapeles sin abrir los archivos (macOS): `pbcopy < supabase/seed.sql`.
 
 Si después querés usar el CLI, hay que avisarle que esas migraciones ya corrieron, porque aplicarlas por el editor no las registra en el historial:
 
 ```bash
-supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000
+supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000
 ```
 
 ### Opción B: Supabase CLI
@@ -120,13 +121,13 @@ Diecinueve tablas, todas con RLS activado.
 | `challenge_attempts` | Historial de respuestas a los desafíos |
 | `activity_days` | Una fila por día practicado; de acá se derivan la racha y la grilla semanal |
 
-`complete_practice_challenge(use_case_id, position, selected, correct, day)` suma el XP de un desafío una sola vez. Al terminar los tres, suma el bonus, marca el caso y sube la habilidad. Copiar el pedido o abrir una herramienta no suma XP. Si el caso ya estaba completado, no se vuelve a pagar.
+`complete_practice_challenge(use_case_id, position, selected, day)` suma el XP de un desafío una sola vez. El servidor decide si la opción es correcta leyendo `challenge_options.is_correct`; el cliente no envía `p_correct`. Al terminar los tres, suma el bonus, marca el caso y sube la habilidad. Copiar el pedido o abrir una herramienta no suma XP. Si el caso ya estaba completado, no se vuelve a pagar.
 
 ### Sobre RLS y el login
 
 El login y el registro usan Supabase Auth (`signInWithPassword` / `signUp` / `signOut`). `public.profiles.id` es el mismo UUID que `auth.users.id`. Un trigger `on_auth_user_created` crea el perfil al nacer la cuenta, con el `display_name` enviado en la metadata del signup.
 
-Las políticas de datos privados permiten al rol `authenticated` leer y escribir **solo sus propias filas** (`id = auth.uid()` o `profile_id = auth.uid()`). El rol `anon` puede leer el catálogo público y no puede modificar progreso ni perfiles. Las RPCs de práctica resuelven al usuario con `auth.uid()`.
+Las políticas de datos privados permiten al rol `authenticated` leer **solo sus propias filas** (`id = auth.uid()` o `profile_id = auth.uid()`). `profiles.xp` y `profiles.level_id` no se pueden actualizar desde el cliente: los cambia `add_xp` vía RPC. El rol `anon` puede leer el catálogo público y no puede modificar progreso ni perfiles. Las RPCs de práctica (`resolve_use_case`, `complete_practice_challenge`) son `SECURITY DEFINER`, resuelven al usuario con `auth.uid()` y son la vía de escritura de XP, rewards y skills.
 
 El perfil demo (Martín) ya no participa en runtime. Los pasos para aplicar la migración, crear usuarios de prueba y verificar aislamiento están en [SUPABASE_SETUP.md](SUPABASE_SETUP.md).
 
@@ -146,7 +147,7 @@ src/
 supabase/
   migrations/              Schema versionado
   seed.sql                 Esqueleto y catálogo de casos de uso
-  seeds/reset_progress.sql Vuelve el progreso de todos los perfiles a cero (ver abajo)
+  seeds/reset_progress.sql Vuelve a cero el progreso de un perfil (uuid obligatorio)
 ```
 
 El provider carga todo al montar (catálogo incluido) y expone `data`, `loading`, `error` y los mutadores `toggleStep`, `markResolved` y `completeChallenge`. Los valores derivados (racha, grilla semanal, progreso general, casos resueltos, habilidades practicadas) se calculan en `derive()` a partir de las filas, no se guardan.
@@ -162,7 +163,7 @@ Los casos viven en la base y se cargan desde [supabase/seed.sql](supabase/seed.s
 
 **Progreso de un caso:** queda en práctica al empezar y se completa al terminar los 3 desafíos. El XP se otorga ahí, no al armar el pedido. `src/data/guidedCases.js` y `src/data/practiceChallenges.js` son un respaldo temporal mientras la base no tenga la migración `20261021010000`. Después de aplicar las migraciones y el seed, el catálogo vive en Supabase.
 
-Las tablas de progreso tienen foreign key hacia `use_cases`, así que no pueden quedar filas apuntando a casos que no existen. Las opciones del desafío se leen con `is_correct` incluido porque la corrección se hace en el frontend: en la demo, la respuesta es visible para quien inspeccione la red.
+Las tablas de progreso tienen foreign key hacia `use_cases`, así que no pueden quedar filas apuntando a casos que no existen. Las opciones del desafío se leen con `is_correct` para el feedback visual; el XP lo calcula la RPC en SQL.
 
 ## Seeds
 
@@ -170,7 +171,7 @@ Las tablas de progreso tienen foreign key hacia `use_cases`, así que no pueden 
 
 Cada cuenta Auth arranca en cero: 0 XP, 0%, sin racha, habilidades en 0% y los cuatro logros bloqueados. Todo se llena practicando.
 
-[supabase/seeds/reset_progress.sql](supabase/seeds/reset_progress.sql) devuelve el progreso de todos los perfiles a cero sin tocar el esqueleto ni las cuentas. **No se aplica solo**: el `config.toml` carga únicamente `seed.sql`, hay que correrlo a mano.
+[supabase/seeds/reset_progress.sql](supabase/seeds/reset_progress.sql) devuelve a cero el progreso de **un** perfil. Hay que pegar el uuid en `target_profile_id`; el sentinela `00000000-...` aborta. **No se aplica solo**: el `config.toml` carga únicamente `seed.sql`. El reset global está en `supabase/seeds/reset_all_progress_destructive.sql` y no es el script estándar.
 
 ### Cómo se desbloquean los logros
 

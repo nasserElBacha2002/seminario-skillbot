@@ -43,6 +43,7 @@ Reiniciar `npm run dev` después de cambiar `.env.local`. Vite lee las variables
 |---|---|
 | `supabase/migrations/20261027120000_supabase_auth.sql` | Borra el perfil demo (no puede vivir en `auth.users`). Vincula `profiles.id` a `auth.users(id)`. Crea trigger `handle_new_user`. Reemplaza RLS de datos privados para usar `auth.uid()`. Reescribe `add_xp`, `resolve_use_case` y `complete_practice_challenge` para resolver al usuario por JWT. Revoca writes de `anon` sobre datos privados. |
 | `supabase/migrations/20261027130000_profile_initials.sql` | Ajusta `profile_initials`: un nombre → una letra (`Luciano` → `L`); dos palabras → dos iniciales (`Martín Rodríguez` → `MR`). |
+| `supabase/migrations/20261027140000_secure_progress_writes.sql` | Post code-review: `profiles` queda SELECT-only para `authenticated`. Tablas de progreso sin escritura amplia. RPCs `SECURITY DEFINER`. `add_xp(p_amount)`. `complete_practice_challenge` sin `p_correct`. |
 
 Las migraciones anteriores siguen siendo necesarias si el proyecto se levanta desde cero. Orden:
 
@@ -54,18 +55,19 @@ Las migraciones anteriores siguen siendo necesarias si el proyecto se levanta de
 6. `20261021020000_award_xp_on_correct.sql`
 7. **`20261027120000_supabase_auth.sql`**
 8. **`20261027130000_profile_initials.sql`**
-9. `supabase/seed.sql` (catálogo; ya no inserta un perfil demo)
+9. **`20261027140000_secure_progress_writes.sql`**
+10. `supabase/seed.sql` (catálogo; ya no inserta un perfil demo)
 
 ### Opción A: SQL Editor
 
-Si las migraciones 1–6 ya estaban aplicadas, pegar y ejecutar **solo** `supabase/migrations/20261027120000_supabase_auth.sql`.
+Si las migraciones 1–6 ya estaban aplicadas, pegar y ejecutar `20261027120000`, `20261027130000` y `20261027140000` en ese orden.
 
 Después, si el catálogo no está, ejecutar `supabase/seed.sql`.
 
 Si más adelante se usa el CLI, registrar las que se aplicaron a mano:
 
 ```bash
-supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000
+supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000
 ```
 
 ### Opción B: Supabase CLI (proyecto ya linkeado)
@@ -74,7 +76,7 @@ supabase migration repair --status applied 20261006232500 20261012230000 2026102
 supabase db push
 ```
 
-Eso aplica las migraciones pendientes, incluida `20261027120000`. No incluye el seed; el seed se carga en `db reset` o se pega a mano.
+Eso aplica las migraciones pendientes, incluidas `20261027120000`, `20261027130000` y `20261027140000`. No incluye el seed; el seed se carga en `db reset` o se pega a mano.
 
 ### Opción C: desarrollo local
 
@@ -86,7 +88,19 @@ supabase db reset
 
 `db reset` aplica todas las migraciones y después `supabase/seed.sql`.
 
-**Efecto sobre datos:** la migración nueva **borra** filas de `public.profiles` que no existan en `auth.users`. Eso incluye el perfil demo Martín y su progreso. Es intencional: el progreso pasa a ser por cuenta.
+**Efecto sobre datos:** `20261027120000` borra `public.profiles` sin fila en `auth.users`. Eso incluye el perfil demo Martín (`11111111-1111-4111-8111-111111111111`) y huérfanos de desarrollo. No toca cuentas Auth válidas.
+
+Tablas hijas con `ON DELETE CASCADE` hacia `profiles(id)`:
+
+- `user_skills`
+- `user_achievements`
+- `use_case_progress`
+- `use_case_step_progress`
+- `challenge_attempts`
+- `activity_days`
+- `practice_rewards`
+
+Al borrar esos profiles se va su XP, skills, logros, racha, intentos y rewards. El catálogo público no se toca. `20261027140000` aborta si todavía quedara un perfil huérfano.
 
 ## 5. Verificación de Authentication
 
@@ -188,9 +202,9 @@ RPCs que dejaron de usar `demo_profile_id()`:
 | Función | Qué verificar |
 |---|---|
 | `public.require_auth_uid()` | Falla con `not authenticated` si no hay JWT. |
-| `public.add_xp(p_profile_id, p_amount)` | Solo acepta `p_profile_id = auth.uid()`. `anon` no tiene `execute`. |
-| `public.resolve_use_case(p_use_case_id, p_day)` | Escribe progreso del usuario del JWT. Sin sesión, no escribe. |
-| `public.complete_practice_challenge(...)` | Igual: XP y rewards van al `auth.uid()`. |
+| `public.add_xp(p_amount)` | Receptor = `auth.uid()`. `execute` revocado a `anon` y `authenticated`; solo la llaman otras RPCs. |
+| `public.resolve_use_case(p_use_case_id, p_day)` | `SECURITY DEFINER`. Escribe progreso del JWT. Sin sesión, no escribe. |
+| `public.complete_practice_challenge(p_use_case_id, p_position, p_selected, p_day)` | `SECURITY DEFINER`. Correctness sale de `challenge_options.is_correct`. |
 
 ```sql
 select proname
@@ -296,6 +310,70 @@ Eso llega a `auth.users.raw_user_meta_data->>'display_name'`. El trigger la usa 
 
 No crear perfiles desde el frontend.
 
+## Correcciones de seguridad post code-review
+
+Migración: `supabase/migrations/20261027140000_secure_progress_writes.sql` (después de `20261027120000` y `20261027130000`).
+
+### Permisos de profiles
+
+`authenticated` solo tiene `SELECT` sobre su fila (`id = auth.uid()`). Se revocó `UPDATE`. No hay policy de INSERT/UPDATE/DELETE para el cliente.
+
+`xp` y `level_id` los cambia únicamente `public.add_xp` (la llaman `resolve_use_case` y `complete_practice_challenge`). El trigger `handle_new_user` inserta el perfil inicial.
+
+### Permisos de tablas de progreso
+
+| Tabla | SELECT | INSERT | UPDATE | DELETE | Escritura |
+|---|---|---|---|---|---|
+| `user_skills` | propio | no | no | no | RPC |
+| `user_achievements` | propio | propio | no | no | frontend `unlockAchievement` (no hay RPC de logros) |
+| `use_case_progress` | propio | propio, `in_progress` y `progress <= 80` | igual | no | pasos / begin / restart; el 100% lo pone la RPC |
+| `challenge_attempts` | propio | no | no | no | RPC |
+| `activity_days` | propio | propio | propio (upsert) | no | `markActivityToday` y RPC |
+| `use_case_step_progress` | propio | propio | no | propio | `setStepDone` / `clearCaseSteps` |
+| `practice_rewards` | propio | no | no | no | RPC |
+
+El catálogo público (`use_cases` published, categorías, tools, steps, challenges, options, skills, levels, achievements) no se modifica en esta migración.
+
+### Estrategia de RPCs
+
+`add_xp`, `resolve_use_case` y `complete_practice_challenge` pasan a `SECURITY DEFINER` con `SET search_path = public`. Motivo: al revocar INSERT/UPDATE/DELETE de `authenticated`, un `SECURITY INVOKER` no podría escribir.
+
+Siguen validando `require_auth_uid()`. `add_xp` ya no recibe `profile_id`. `execute` de `add_xp` está revocado a `anon` y `authenticated` (solo la usan las otras RPCs). `resolve_use_case` y `complete_practice_challenge` tienen `execute` solo para `authenticated`.
+
+### Firma de add_xp
+
+Antes: `add_xp(p_profile_id uuid, p_amount integer)` (validaba `p_profile_id = auth.uid()`).
+
+Ahora: `add_xp(p_amount integer)`. El receptor es `auth.uid()`. La firma vieja se elimina.
+
+### Eliminación de p_correct
+
+`complete_practice_challenge(p_use_case_id, p_position, p_selected, p_day)` lee `challenge_options.is_correct` para la letra enviada. Si la opción no existe, falla. El frontend ya no manda `p_correct`. El feedback visual sigue usando `is_correct` del catálogo; el XP lo decide SQL.
+
+### Datos demo legacy
+
+`20261027120000` borra `public.profiles` sin fila en `auth.users` (Martín `11111111-1111-4111-8111-111111111111` y huérfanos). Las tablas hijas se van por `ON DELETE CASCADE`. No toca usuarios Auth. `20261027140000` documenta ese impacto y aborta si todavía hubiera un huérfano.
+
+### reset_progress.sql
+
+El script estándar exige un uuid en `target_profile_id`. El sentinela `00000000-0000-0000-0000-000000000000` aborta. No resetea a todos.
+
+El reset global está en `supabase/seeds/reset_all_progress_destructive.sql`. No es el script estándar y no lo carga `config.toml`.
+
+### Checklist remoto (esta corrección)
+
+- [ ] aplicar migration correctiva (`20261027140000_secure_progress_writes.sql`).
+- [ ] verificar profile read-only desde frontend.
+- [ ] intentar modificar xp manualmente y confirmar fallo.
+- [ ] intentar insertar reward manual y confirmar fallo.
+- [ ] completar un caso normalmente y confirmar que RPC sí escribe.
+- [ ] completar challenge correctamente.
+- [ ] responder challenge incorrectamente.
+- [ ] comprobar que servidor determina correctness.
+- [ ] comprobar usuario A vs B.
+- [ ] revisar datos demo eliminados/migrados.
+- [ ] verificar catálogo público.
+
 ## 12. Problemas conocidos
 
 ### Probado en código / build local
@@ -310,7 +388,7 @@ No crear perfiles desde el frontend.
 
 ### Pendiente de probar en remoto
 
-- Aplicar `20261027120000_supabase_auth.sql` y `20261027130000_profile_initials.sql` en el proyecto de Supabase.
+- Aplicar `20261027120000_supabase_auth.sql`, `20261027130000_profile_initials.sql` y `20261027140000_secure_progress_writes.sql` en el proyecto de Supabase.
 - Habilitar signup por email y alinear la política de contraseña a 8+ caracteres.
 - Registrar un usuario desde la app y comprobar Auth + `profiles`.
 - Crear usuarios A y B (app o dashboard) para aislamiento.
@@ -332,7 +410,7 @@ Si la migración **falla a mitad de camino** en SQL Editor, no reejecutar a cieg
 Si hace falta volver al estado anterior:
 
 1. Dejar de usar esta branch del frontend (el login demo ya no existe en este código).
-2. La migración `20261027120000` **elimina** el perfil demo y su progreso. Eso no se recupera salvo backup del proyecto.
+2. La migración `20261027120000` **elimina** el perfil demo y su progreso (hijas primero, después `profiles`). Eso no se recupera salvo backup del proyecto.
 3. Revertir policies a `demo_profile_id()` solo tiene sentido junto con el frontend viejo y un perfil demo recreado. No se recomienda.
 
 Datos afectados al aplicar la migración:
@@ -345,7 +423,8 @@ Datos afectados al aplicar la migración:
 
 - [ ] Abrí el proyecto correcto de Supabase.
 - [ ] Confirmé URL y anon key.
-- [ ] Apliqué las migraciones nuevas.
+- [ ] Apliqué las migraciones nuevas (`20261027120000`, `20261027130000`, `20261027140000`).
+- [ ] Apliqué la migration correctiva y verifiqué profile read-only / RPC / A vs B (checklist de Correcciones de seguridad).
 - [ ] Verifiqué Email Auth.
 - [ ] Configuré Site URL.
 - [ ] Configuré Redirect URLs.

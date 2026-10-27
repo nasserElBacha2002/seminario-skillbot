@@ -137,14 +137,12 @@ export function SkillbotDataProvider({ children }) {
     setData(await loadWithAchievements())
   }, [])
 
-  // El XP lo decide la base, una vez por desafío. Copiar o abrir una IA no pasa por acá.
-  const finishChallenge = useCallback(async ({ useCase, position, selectedOption, isCorrect }) => {
-    if (!isCorrect) return 0
+  // El XP lo decide la base leyendo challenge_options.is_correct. Copiar o abrir una IA no pasa por acá.
+  const finishChallenge = useCallback(async ({ useCase, position, selectedOption }) => {
     const awarded = await completePracticeChallenge({
       useCaseId: useCase.id,
       position,
       selected: selectedOption,
-      correct: true,
       day: toDayString(new Date()),
     })
     setData(await loadWithAchievements())

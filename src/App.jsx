@@ -42,10 +42,10 @@ function Shell() {
 }
 
 function Gate() {
-  const { session, loading, error, reload } = useAuth()
+  const { session, passwordRecovery, loading, error, reload } = useAuth()
   if (loading) return <Boot />
   if (error && !session) return <BootError error={error} onRetry={reload} />
-  if (!session) return <AuthFlow />
+  if (passwordRecovery || !session) return <AuthFlow />
   return (
     <SkillbotDataProvider>
       <Shell />

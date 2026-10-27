@@ -20,7 +20,7 @@ function loginMessage(error) {
   return 'No pudimos iniciar sesión. Intentá nuevamente.'
 }
 
-export function Login({ email, onEmailChange, onRegister }) {
+export function Login({ email, onEmailChange, onRegister, onForgot }) {
   const { signIn } = useAuth()
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -80,6 +80,18 @@ export function Login({ email, onEmailChange, onRegister }) {
             aria-invalid={Boolean(error)}
           />
         </label>
+        <button
+          type="button"
+          className="login-forgot"
+          disabled={submitting}
+          onClick={() => {
+            setPassword('')
+            setError('')
+            onForgot()
+          }}
+        >
+          Olvidé mi contraseña
+        </button>
         {error && <p className="login-error" role="alert">{error}</p>}
         <button type="submit" className="primary login-button" disabled={submitting} aria-busy={submitting}>
           {submitting ? <LoaderCircle size={18} className="spin" /> : null}

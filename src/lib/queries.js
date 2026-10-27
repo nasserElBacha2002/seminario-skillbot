@@ -254,6 +254,10 @@ export async function fetchSkillbotData() {
   }
 }
 
+export function updateProfileName(displayName) {
+  return supabase.rpc('update_profile_name', { p_display_name: displayName }).then(unwrap)
+}
+
 export function resolveUseCase(useCaseId, day) {
   return supabase.rpc('resolve_use_case', { p_use_case_id: useCaseId, p_day: day }).then(unwrap)
 }

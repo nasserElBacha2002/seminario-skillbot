@@ -44,6 +44,7 @@ Reiniciar `npm run dev` después de cambiar `.env.local`. Vite lee las variables
 | `supabase/migrations/20261027120000_supabase_auth.sql` | Borra el perfil demo (no puede vivir en `auth.users`). Vincula `profiles.id` a `auth.users(id)`. Crea trigger `handle_new_user`. Reemplaza RLS de datos privados para usar `auth.uid()`. Reescribe `add_xp`, `resolve_use_case` y `complete_practice_challenge` para resolver al usuario por JWT. Revoca writes de `anon` sobre datos privados. |
 | `supabase/migrations/20261027130000_profile_initials.sql` | Ajusta `profile_initials`: un nombre → una letra (`Luciano` → `L`); dos palabras → dos iniciales (`Martín Rodríguez` → `MR`). |
 | `supabase/migrations/20261027140000_secure_progress_writes.sql` | Post code-review: `profiles` queda SELECT-only para `authenticated`. Tablas de progreso sin escritura amplia. RPCs `SECURITY DEFINER`. `add_xp(p_amount)`. `complete_practice_challenge` sin `p_correct`. |
+| `supabase/migrations/20261027150000_update_profile_name.sql` | Fase 4: RPC `update_profile_name` para `display_name` + `initials`. No otorga `UPDATE` de tabla sobre `profiles`. |
 
 Las migraciones anteriores siguen siendo necesarias si el proyecto se levanta desde cero. Orden:
 
@@ -56,18 +57,19 @@ Las migraciones anteriores siguen siendo necesarias si el proyecto se levanta de
 7. **`20261027120000_supabase_auth.sql`**
 8. **`20261027130000_profile_initials.sql`**
 9. **`20261027140000_secure_progress_writes.sql`**
-10. `supabase/seed.sql` (catálogo; ya no inserta un perfil demo)
+10. **`20261027150000_update_profile_name.sql`**
+11. `supabase/seed.sql` (catálogo; ya no inserta un perfil demo)
 
 ### Opción A: SQL Editor
 
-Si las migraciones 1–6 ya estaban aplicadas, pegar y ejecutar `20261027120000`, `20261027130000` y `20261027140000` en ese orden.
+Si las migraciones 1–6 ya estaban aplicadas, pegar y ejecutar `20261027120000`, `20261027130000`, `20261027140000` y `20261027150000` en ese orden.
 
 Después, si el catálogo no está, ejecutar `supabase/seed.sql`.
 
 Si más adelante se usa el CLI, registrar las que se aplicaron a mano:
 
 ```bash
-supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000
+supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000 20261027150000
 ```
 
 ### Opción B: Supabase CLI (proyecto ya linkeado)
@@ -76,7 +78,7 @@ supabase migration repair --status applied 20261006232500 20261012230000 2026102
 supabase db push
 ```
 
-Eso aplica las migraciones pendientes, incluidas `20261027120000`, `20261027130000` y `20261027140000`. No incluye el seed; el seed se carga en `db reset` o se pega a mano.
+Eso aplica las migraciones pendientes, incluidas `20261027120000`, `20261027130000`, `20261027140000` y `20261027150000`. No incluye el seed; el seed se carga en `db reset` o se pega a mano.
 
 ### Opción C: desarrollo local
 
@@ -137,6 +139,8 @@ Dashboard → **Authentication → URL Configuration**:
 
 - **Site URL:** `http://localhost:5173` mientras se pruebe en local contra el proyecto remoto.
 - **Redirect URLs:** agregar `http://localhost:5173` y `http://127.0.0.1:5173`.
+
+La recuperación de contraseña usa `supabase.auth.resetPasswordForEmail` con `redirectTo = window.location.origin` (en desarrollo `http://localhost:5173` o `http://127.0.0.1:5173`). El cliente ya tiene `detectSessionInUrl: true` y muestra la pantalla de nueva contraseña cuando llega el evento `PASSWORD_RECOVERY`. Esas origins tienen que estar en Site URL / Redirect URLs; no se puede aplicar el dashboard desde este repo.
 
 No hay URL de producción definida en el repositorio. No inventar una. Cuando exista un deploy, hay que sumar esa origin a Site URL / Redirect URLs.
 
@@ -316,7 +320,7 @@ Migración: `supabase/migrations/20261027140000_secure_progress_writes.sql` (des
 
 ### Permisos de profiles
 
-`authenticated` solo tiene `SELECT` sobre su fila (`id = auth.uid()`). Se revocó `UPDATE`. No hay policy de INSERT/UPDATE/DELETE para el cliente.
+`authenticated` solo tiene `SELECT` sobre su fila (`id = auth.uid()`). No hay `UPDATE` de tabla. `display_name` e `initials` se cambian con `public.update_profile_name` (`20261027150000`), que recalcula initials en SQL.
 
 `xp` y `level_id` los cambia únicamente `public.add_xp` (la llaman `resolve_use_case` y `complete_practice_challenge`). El trigger `handle_new_user` inserta el perfil inicial.
 
@@ -388,7 +392,7 @@ El reset global está en `supabase/seeds/reset_all_progress_destructive.sql`. No
 
 ### Pendiente de probar en remoto
 
-- Aplicar `20261027120000_supabase_auth.sql`, `20261027130000_profile_initials.sql` y `20261027140000_secure_progress_writes.sql` en el proyecto de Supabase.
+- Aplicar `20261027120000_supabase_auth.sql`, `20261027130000_profile_initials.sql`, `20261027140000_secure_progress_writes.sql` y `20261027150000_update_profile_name.sql` en el proyecto de Supabase.
 - Habilitar signup por email y alinear la política de contraseña a 8+ caracteres.
 - Registrar un usuario desde la app y comprobar Auth + `profiles`.
 - Crear usuarios A y B (app o dashboard) para aislamiento.
@@ -423,7 +427,7 @@ Datos afectados al aplicar la migración:
 
 - [ ] Abrí el proyecto correcto de Supabase.
 - [ ] Confirmé URL y anon key.
-- [ ] Apliqué las migraciones nuevas (`20261027120000`, `20261027130000`, `20261027140000`).
+- [ ] Apliqué las migraciones nuevas (`20261027120000`, `20261027130000`, `20261027140000`, `20261027150000`).
 - [ ] Apliqué la migration correctiva y verifiqué profile read-only / RPC / A vs B (checklist de Correcciones de seguridad).
 - [ ] Verifiqué Email Auth.
 - [ ] Configuré Site URL.

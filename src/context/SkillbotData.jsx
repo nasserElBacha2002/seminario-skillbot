@@ -5,6 +5,7 @@ import {
   completePracticeChallenge,
   fetchSkillbotData,
   markActivityToday,
+  updateProfileName,
   saveUseCaseProgress,
   setStepDone,
   toDayString,
@@ -149,9 +150,24 @@ export function SkillbotDataProvider({ children }) {
     return Number(awarded) || 0
   }, [])
 
+  const saveDisplayName = useCallback(async (displayName) => {
+    const row = await updateProfileName(displayName)
+    const current = dataRef.current
+    if (!current) return row
+    setData({
+      ...current,
+      profile: {
+        ...current.profile,
+        name: row.display_name,
+        initials: row.initials,
+      },
+    })
+    return row
+  }, [])
+
   const value = useMemo(
-    () => ({ data, loading: !data && !error, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge }),
-    [data, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge],
+    () => ({ data, loading: !data && !error, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName }),
+    [data, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName],
   )
 
   return <SkillbotDataContext.Provider value={value}>{children}</SkillbotDataContext.Provider>

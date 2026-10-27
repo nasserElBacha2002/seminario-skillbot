@@ -49,7 +49,8 @@ El schema vive en [supabase/migrations/](supabase/migrations/) y los datos inici
 8. Pegar y ejecutar [supabase/migrations/20261027120000_supabase_auth.sql](supabase/migrations/20261027120000_supabase_auth.sql).
 9. Pegar y ejecutar [supabase/migrations/20261027130000_profile_initials.sql](supabase/migrations/20261027130000_profile_initials.sql).
 10. Pegar y ejecutar [supabase/migrations/20261027140000_secure_progress_writes.sql](supabase/migrations/20261027140000_secure_progress_writes.sql).
-11. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
+11. Pegar y ejecutar [supabase/migrations/20261027150000_update_profile_name.sql](supabase/migrations/20261027150000_update_profile_name.sql).
+12. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
 
 La activación de Auth (Email provider, Site URL, usuarios de prueba) está en [SUPABASE_SETUP.md](SUPABASE_SETUP.md).
 
@@ -60,7 +61,7 @@ Para copiar al portapapeles sin abrir los archivos (macOS): `pbcopy < supabase/s
 Si después querés usar el CLI, hay que avisarle que esas migraciones ya corrieron, porque aplicarlas por el editor no las registra en el historial:
 
 ```bash
-supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000
+supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000 20261027150000
 ```
 
 ### Opción B: Supabase CLI
@@ -127,7 +128,7 @@ Diecinueve tablas, todas con RLS activado.
 
 El login y el registro usan Supabase Auth (`signInWithPassword` / `signUp` / `signOut`). `public.profiles.id` es el mismo UUID que `auth.users.id`. Un trigger `on_auth_user_created` crea el perfil al nacer la cuenta, con el `display_name` enviado en la metadata del signup.
 
-Las políticas de datos privados permiten al rol `authenticated` leer **solo sus propias filas** (`id = auth.uid()` o `profile_id = auth.uid()`). `profiles.xp` y `profiles.level_id` no se pueden actualizar desde el cliente: los cambia `add_xp` vía RPC. El rol `anon` puede leer el catálogo público y no puede modificar progreso ni perfiles. Las RPCs de práctica (`resolve_use_case`, `complete_practice_challenge`) son `SECURITY DEFINER`, resuelven al usuario con `auth.uid()` y son la vía de escritura de XP, rewards y skills.
+Las políticas de datos privados permiten al rol `authenticated` leer **solo sus propias filas** (`id = auth.uid()` o `profile_id = auth.uid()`). `profiles.xp` y `profiles.level_id` no se pueden actualizar desde el cliente: los cambia `add_xp` vía RPC. El nombre se cambia con `update_profile_name`, que recalcula `initials` en SQL. El rol `anon` puede leer el catálogo público y no puede modificar progreso ni perfiles. Las RPCs de práctica (`resolve_use_case`, `complete_practice_challenge`) son `SECURITY DEFINER`, resuelven al usuario con `auth.uid()` y son la vía de escritura de XP, rewards y skills.
 
 El perfil demo (Martín) ya no participa en runtime. Los pasos para aplicar la migración, crear usuarios de prueba y verificar aislamiento están en [SUPABASE_SETUP.md](SUPABASE_SETUP.md).
 

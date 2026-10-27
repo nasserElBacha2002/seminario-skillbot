@@ -333,7 +333,8 @@ function toReply(row) {
 export async function fetchHelpTopics() {
   const rows = await supabase
     .from('help_topics')
-    .select(`${HELP_TOPIC_COLUMNS}, replies:help_replies(count)`)
+    // Hay dos FK entre las tablas (topic_id y solved_reply_id); se aclara cuál usar.
+    .select(`${HELP_TOPIC_COLUMNS}, replies:help_replies!help_replies_topic_id_fkey(count)`)
     .order('last_activity_at', { ascending: false })
     .then(unwrap)
   return rows.map(toTopic)

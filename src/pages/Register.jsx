@@ -42,7 +42,7 @@ function validate({ name, email, password, confirmPassword }) {
 }
 
 export function Register({ email, onEmailChange, onLogin }) {
-  const { signUp, authNotice } = useAuth()
+  const { signUp, authNotice, clearAuthNotice } = useAuth()
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -61,6 +61,7 @@ export function Register({ email, onEmailChange, onLogin }) {
 
   async function handleSubmit(event) {
     event.preventDefault()
+    clearAuthNotice()
     const nextName = name.trim()
     const nextEmail = email.trim()
     const localError = validate({

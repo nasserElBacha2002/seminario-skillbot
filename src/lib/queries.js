@@ -317,3 +317,58 @@ export function unlockAchievement(achievementId) {
     )
     .then(unwrap)
 }
+
+// Centro de ayuda. El nombre del autor lo completa un trigger con el del perfil.
+const HELP_TOPIC_COLUMNS = 'id, profile_id, author_name, author_initials, title, body, use_case_id, solved_reply_id, created_at, last_activity_at'
+
+function toTopic(row) {
+  const { replies, ...topic } = row
+  return { ...topic, replyCount: replies?.[0]?.count ?? 0, mine: row.profile_id === DEMO_PROFILE_ID }
+}
+
+function toReply(row) {
+  return { ...row, mine: row.profile_id === DEMO_PROFILE_ID }
+}
+
+export async function fetchHelpTopics() {
+  const rows = await supabase
+    .from('help_topics')
+    .select(`${HELP_TOPIC_COLUMNS}, replies:help_replies(count)`)
+    .order('last_activity_at', { ascending: false })
+    .then(unwrap)
+  return rows.map(toTopic)
+}
+
+export async function fetchHelpReplies(topicId) {
+  const rows = await supabase
+    .from('help_replies')
+    .select('id, topic_id, profile_id, author_name, author_initials, body, created_at')
+    .eq('topic_id', topicId)
+    .order('created_at')
+    .then(unwrap)
+  return rows.map(toReply)
+}
+
+export async function createHelpTopic({ title, body, useCaseId }) {
+  const row = await supabase
+    .from('help_topics')
+    .insert({ profile_id: DEMO_PROFILE_ID, title: title.trim(), body: body.trim(), use_case_id: useCaseId || null })
+    .select(HELP_TOPIC_COLUMNS)
+    .single()
+    .then(unwrap)
+  return toTopic(row)
+}
+
+export async function createHelpReply(topicId, body) {
+  const row = await supabase
+    .from('help_replies')
+    .insert({ topic_id: topicId, profile_id: DEMO_PROFILE_ID, body: body.trim() })
+    .select('id, topic_id, profile_id, author_name, author_initials, body, created_at')
+    .single()
+    .then(unwrap)
+  return toReply(row)
+}
+
+export function markHelpSolution(topicId, replyId) {
+  return supabase.from('help_topics').update({ solved_reply_id: replyId }).eq('id', topicId).then(unwrap)
+}

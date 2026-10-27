@@ -45,7 +45,9 @@ El schema vive en [supabase/migrations/](supabase/migrations/) y los datos inici
 4. Pegar y ejecutar [supabase/migrations/20261020210000_guided_resolution.sql](supabase/migrations/20261020210000_guided_resolution.sql).
 5. Pegar y ejecutar [supabase/migrations/20261020223000_resolve_use_case.sql](supabase/migrations/20261020223000_resolve_use_case.sql).
 6. Pegar y ejecutar [supabase/migrations/20261021010000_practice_challenges.sql](supabase/migrations/20261021010000_practice_challenges.sql).
-7. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
+7. Pegar y ejecutar [supabase/migrations/20261021020000_award_xp_on_correct.sql](supabase/migrations/20261021020000_award_xp_on_correct.sql).
+8. Pegar y ejecutar [supabase/migrations/20261027200000_help_community.sql](supabase/migrations/20261027200000_help_community.sql) (centro de ayuda).
+9. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
 
 ⚠️ La migración del catálogo **borra el progreso del perfil demo** (XP, logros, habilidades, racha y avance), porque apuntaba a los casos viejos de `src/data.js`, que ya no existen.
 
@@ -54,7 +56,7 @@ Para copiar al portapapeles sin abrir los archivos (macOS): `pbcopy < supabase/s
 Si después querés usar el CLI, hay que avisarle que esas migraciones ya corrieron, porque aplicarlas por el editor no las registra en el historial:
 
 ```bash
-supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000
+supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027200000
 ```
 
 ### Opción B: Supabase CLI
@@ -114,6 +116,15 @@ Diecinueve tablas, todas con RLS activado.
 | `use_case_step_progress` | Pasos marcados como hechos en cada caso |
 | `challenge_attempts` | Historial de respuestas a los desafíos |
 | `activity_days` | Una fila por día practicado; de acá se derivan la racha y la grilla semanal |
+
+**Centro de ayuda**
+
+| Tabla | Contenido |
+|---|---|
+| `help_topics` | Preguntas de la comunidad, con caso relacionado opcional y la respuesta marcada como solución |
+| `help_replies` | Respuestas a cada pregunta |
+
+Cualquiera lee todo; se escribe como el perfil demo. El nombre del autor lo copia un trigger desde `profiles`, así que no se puede publicar con otro nombre. Solo el autor de la pregunta puede marcar la solución.
 
 `complete_practice_challenge(use_case_id, position, selected, correct, day)` suma el XP de un desafío una sola vez. Al terminar los tres, suma el bonus, marca el caso y sube la habilidad. Copiar el pedido o abrir una herramienta no suma XP. Si el caso ya estaba completado, no se vuelve a pagar.
 

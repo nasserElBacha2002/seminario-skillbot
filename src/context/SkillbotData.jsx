@@ -1,10 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  addXp,
-  bumpSkill,
+  clearCaseSteps,
+  completePracticeChallenge,
   fetchSkillbotData,
   markActivityToday,
-  recordChallengeAttempt,
   saveUseCaseProgress,
   setStepDone,
   toDayString,
@@ -116,29 +115,39 @@ export function SkillbotDataProvider({ children }) {
     setData(await loadWithAchievements())
   }, [])
 
-  // Devuelve el XP ganado: solo se suma la primera vez que se resuelve el caso.
-  const completeChallenge = useCallback(async ({ useCase, selectedOption, isCorrect }) => {
-    const firstTime = dataRef.current.progress[useCase.id]?.status !== 'completed'
-    const xpEarned = isCorrect && firstTime ? useCase.xpReward : 0
-
-    await recordChallengeAttempt({ useCaseSlug: useCase.id, selectedOption, isCorrect, xpEarned })
-
-    if (isCorrect) {
-      await Promise.all([
-        markActivityToday(),
-        firstTime ? saveUseCaseProgress(useCase.id, 100) : null,
-        xpEarned ? addXp(xpEarned) : null,
-        firstTime && useCase.skill ? bumpSkill(useCase.skill, 5) : null,
-      ])
-    }
-
+  const beginPractice = useCallback(async (useCase) => {
+    const current = dataRef.current
+    if (current?.progress[useCase.id]?.status === 'completed') return
+    const currentProgress = current?.progress[useCase.id]?.progress ?? 0
+    await saveUseCaseProgress(useCase.id, Math.max(currentProgress, 10))
+    await markActivityToday()
     setData(await loadWithAchievements())
-    return xpEarned
+  }, [])
+
+  const restartPractice = useCallback(async (useCase) => {
+    await clearCaseSteps(useCase.id)
+    await saveUseCaseProgress(useCase.id, 10)
+    await markActivityToday()
+    setData(await loadWithAchievements())
+  }, [])
+
+  // El XP lo decide la base, una vez por desafío. Copiar o abrir una IA no pasa por acá.
+  const finishChallenge = useCallback(async ({ useCase, position, selectedOption, isCorrect }) => {
+    if (!isCorrect) return 0
+    const awarded = await completePracticeChallenge({
+      useCaseId: useCase.id,
+      position,
+      selected: selectedOption,
+      correct: true,
+      day: toDayString(new Date()),
+    })
+    setData(await loadWithAchievements())
+    return Number(awarded) || 0
   }, [])
 
   const value = useMemo(
-    () => ({ data, loading: !data && !error, error, reload, toggleStep, completeChallenge }),
-    [data, error, reload, toggleStep, completeChallenge],
+    () => ({ data, loading: !data && !error, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge }),
+    [data, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge],
   )
 
   return <SkillbotDataContext.Provider value={value}>{children}</SkillbotDataContext.Provider>

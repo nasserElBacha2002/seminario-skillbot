@@ -258,12 +258,11 @@ export function resolveUseCase(useCaseId, day) {
   return supabase.rpc('resolve_use_case', { p_use_case_id: useCaseId, p_day: day }).then(unwrap)
 }
 
-export function completePracticeChallenge({ useCaseId, position, selected, correct, day }) {
+export function completePracticeChallenge({ useCaseId, position, selected, day }) {
   return supabase.rpc('complete_practice_challenge', {
     p_use_case_id: useCaseId,
     p_position: position,
     p_selected: selected,
-    p_correct: correct,
     p_day: day,
   }).then(unwrap)
 }

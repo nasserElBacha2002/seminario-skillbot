@@ -191,3 +191,64 @@ a.secondary{text-decoration:none}
   .daily-copy{min-width:calc(100% - 62px)}
   .daily-card .primary{width:100%}
 }
+.help-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}.help-intro .primary{flex:none;margin:0}
+.help-tabs{display:flex;gap:4px;border-bottom:1px solid #e9e8f0;margin-bottom:22px}
+.help-tabs button{background:none;padding:10px 14px;font-size:13px;font-weight:700;color:#7a7890;border-bottom:2px solid transparent;margin-bottom:-1px}
+.help-tabs button.active{color:#5d52da;border-color:#675be2}
+.help-page .search-box{max-width:none;margin-top:0}
+.help-filters{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 18px}
+.help-filters button{background:#fff;border:1px solid #e6e5ee;border-radius:99px;padding:8px 14px;font-size:12px;font-weight:700;color:#615e76}
+.help-filters button.active{background:#efedff;border-color:#d6d1ff;color:#5d52da}
+.help-section-title{display:flex;align-items:center;gap:8px;font-size:18px;margin:30px 0 14px;color:#2d2b3f}.help-section-title svg{color:#655be0}
+.help-empty{display:flex;align-items:center;gap:8px;font-size:14px;color:#6f6d80;margin:18px 0}
+.help-error{margin:30px auto;text-align:center}
+.topic-list{display:grid;gap:10px}
+.topic-card{display:block;width:100%;text-align:left;background:#fff;border:1px solid #e9e8f0;border-radius:15px;padding:18px 20px;color:inherit;transition:.2s}
+.topic-card:hover{border-color:#d6d1ff;box-shadow:0 6px 18px #4b3fd512}
+.topic-card-head{display:flex;align-items:flex-start;gap:10px}
+.topic-card h3{font-size:16px;margin:0;line-height:1.35;color:#2d2b3f}
+.topic-card>p{font-size:13px;color:#6f6d80;line-height:1.5;margin:6px 0 12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.topic-solved{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:4px;font-style:normal;font-size:11px;font-weight:800;color:#1f8a5b;background:#e6f6ee;border-radius:99px;padding:4px 9px}
+.topic-meta{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.topic-author{display:flex;align-items:center;gap:8px;font-size:12px}
+.topic-author span{width:26px;height:26px;border-radius:8px;background:#efedff;color:#665bdf;display:grid;place-items:center;font-size:10px;font-weight:800}
+.topic-author b{color:#3c3a4f}.topic-author small{color:#9a98aa}
+.topic-case{font-size:11px;font-weight:700;color:#5d52da;background:#f5f3ff;border:0;border-radius:7px;padding:4px 9px}
+.topic-count{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#7a7890;font-weight:700}
+.topic-form,.reply-form{display:grid;gap:8px;background:#fff;border:1px solid #e9e8f0;border-radius:16px;padding:22px}
+.topic-form h2{font-size:18px;margin:0 0 6px}
+.topic-form label,.reply-form label{font-size:13px;font-weight:700;color:#3c3a4f;margin-top:6px}
+.topic-form input,.topic-form textarea,.topic-form select,.reply-form textarea{width:100%;box-sizing:border-box;border:1px solid #e3e1ec;border-radius:10px;padding:11px 13px;color:#2c2a3f;background:#f7f6fb;font:inherit;font-size:15px;resize:vertical}
+.topic-form .field-help{margin-top:6px}
+.topic-form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}.topic-form-actions .primary,.topic-form-actions .secondary{margin:0}
+.reply-form{margin-top:18px}.reply-form .primary{justify-self:end;margin-top:4px}
+.form-error{font-size:13px;color:#c2412d;margin:4px 0 0}
+.topic-detail .back{margin-bottom:16px}
+.topic-main{background:#fff;border:1px solid #e9e8f0;border-radius:16px;padding:24px;display:grid;gap:12px;justify-items:start}
+.topic-main h1{font-size:25px;margin:0;line-height:1.3}
+.topic-main .topic-card-head{width:100%}
+.topic-body{font-size:14px;color:#4e4c62;line-height:1.65;margin:0;white-space:pre-wrap}
+.reply-list{display:grid;gap:10px}
+.reply{background:#fff;border:1px solid #e9e8f0;border-radius:14px;padding:16px 18px;display:grid;gap:8px;justify-items:start}
+.reply p{font-size:14px;color:#4e4c62;line-height:1.6;margin:0;white-space:pre-wrap}
+.reply.solved{border-color:#a8e0c4;background:#f5fcf8}.reply .topic-solved{margin:0}
+.reply-mark{background:none;padding:0;font-size:12px;font-weight:700;color:#5d52da}
+.help-steps{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.help-steps li{background:#fff;border:1px solid #e9e8f0;border-radius:15px;padding:18px}
+.help-step-icon{width:34px;height:34px;border-radius:10px;background:#efedff;color:#655be0;display:grid;place-items:center;margin-bottom:12px}
+.help-steps small{display:block;font-size:10px;letter-spacing:.1em;font-weight:800;text-transform:uppercase;color:#86849a}
+.help-steps b{display:block;font-size:15px;margin:4px 0 6px}
+.help-steps p{font-size:12px;color:#6f6d80;line-height:1.5;margin:0}
+.help-faq{background:#fff;border:1px solid #e9e8f0;border-radius:15px;padding:0 18px}
+.help-faq details+details{border-top:1px solid #efeef4}
+.help-faq summary{min-height:50px;display:flex;align-items:center;cursor:pointer;font-weight:700;font-size:14px;color:#3c3a4f;list-style:none}
+.help-faq summary::-webkit-details-marker{display:none}
+.help-faq summary::after{content:'+';margin-left:auto;padding-left:12px;font-size:18px;color:#8d8b9c}
+.help-faq details[open] summary::after{content:'–'}
+.help-faq details p{font-size:13px;color:#6f6d80;line-height:1.6;margin:0 0 16px;max-width:760px}
+.case-ask{margin-top:28px;display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e9e8f0;border-radius:15px;padding:16px 18px}
+.case-ask>span{width:36px;height:36px;flex:none;border-radius:10px;background:#efedff;color:#655be0;display:grid;place-items:center}
+.case-ask b{font-size:14px}.case-ask p{font-size:12px;color:#6f6d80;margin:3px 0 0}
+.case-ask .secondary{flex:none}
+@media(max-width:850px){.help-steps{grid-template-columns:1fr 1fr}}
+@media(max-width:570px){.help-intro{flex-direction:column;align-items:stretch}.help-steps{grid-template-columns:1fr}.topic-form-actions{flex-direction:column-reverse}.reply-form .primary{justify-self:stretch}.case-ask{flex-direction:column;align-items:flex-start}.help-tabs button{flex:1}}

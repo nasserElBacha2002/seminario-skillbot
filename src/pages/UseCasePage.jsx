@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MessagesSquare } from 'lucide-react'
 import { caseIcon } from '../components/icons'
 import { CaseGuide } from '../components/CaseGuide'
 import { CaseResult } from '../components/CaseResult'
@@ -27,7 +28,7 @@ function answeredPositions(useCaseId, serverDone) {
   return [...new Set([...(loadSession(useCaseId).answered ?? []), ...(serverDone ?? [])])]
 }
 
-export function UseCasePage({ setPage, useCase, origin }) {
+export function UseCasePage({ setPage, useCase, origin, onAsk }) {
   const { data, beginPractice, restartPractice, finishChallenge } = useSkillbotData()
   const Icon = caseIcon(useCase)
   const progress = data.progress[useCase.id]
@@ -241,6 +242,15 @@ export function UseCasePage({ setPage, useCase, origin }) {
             )}
           </>
         )}
+
+        <aside className="case-ask">
+          <span><MessagesSquare size={18} /></span>
+          <div>
+            <b>¿Te trabaste con este caso?</b>
+            <p>Preguntá en la comunidad: otros usuarios pueden ayudarte.</p>
+          </div>
+          <button type="button" className="secondary" onClick={() => onAsk(useCase.id)}>Preguntar</button>
+        </aside>
       </section>
     </Layout>
   )

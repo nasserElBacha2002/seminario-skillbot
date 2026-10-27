@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bot, Home, Menu, Search, Trophy, UserRound, Zap } from 'lucide-react'
+import { Bot, CircleHelp, Home, Menu, Search, Trophy, UserRound, Zap } from 'lucide-react'
 import { useSkillbotData } from '../context/SkillbotData'
 
 const nav = [
@@ -7,6 +7,7 @@ const nav = [
   ['explorar', 'Explorar', Search],
   ['progreso', 'Progreso', Trophy],
   ['perfil', 'Perfil', UserRound],
+  ['ayuda', 'Ayuda', CircleHelp],
 ]
 
 export function Logo() {
@@ -67,6 +68,7 @@ export function Layout({ page, setPage, children }) {
     desafio: 'Desafío',
     progreso: 'Progreso',
     perfil: 'Perfil',
+    ayuda: 'Centro de ayuda',
   }
   return (
     <div className="app">

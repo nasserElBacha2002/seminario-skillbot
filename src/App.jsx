@@ -3,6 +3,7 @@ import { SkillbotDataProvider, useSkillbotData } from './context/SkillbotData'
 import { Boot, BootError } from './components/Boot'
 import { rememberCase } from './lib/storage'
 import { ExplorePage } from './pages/ExplorePage'
+import { HelpPage } from './pages/HelpPage'
 import { HomePage } from './pages/HomePage'
 import { Login } from './pages/Login'
 import { ProfilePage } from './pages/ProfilePage'
@@ -14,6 +15,7 @@ function Shell({ onLogout }) {
   const [page, setPage] = useState('inicio')
   const [caseId, setCaseId] = useState(null)
   const [origin, setOrigin] = useState('inicio')
+  const [askCaseId, setAskCaseId] = useState(null)
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -28,6 +30,10 @@ function Shell({ onLogout }) {
     setOrigin(from)
     setPage('detalle')
   }
+  const askCommunity = (id) => {
+    setAskCaseId(id)
+    setPage('ayuda')
+  }
   const useCase = data.useCases.find((item) => item.id === caseId)
   if ((page === 'detalle' || page === 'desafio') && !useCase) {
     return <ExplorePage setPage={setPage} openCase={openCase} />
@@ -35,8 +41,11 @@ function Shell({ onLogout }) {
 
   if (page === 'inicio') return <HomePage setPage={setPage} openCase={openCase} />
   if (page === 'explorar') return <ExplorePage setPage={setPage} openCase={openCase} />
-  if (page === 'detalle' || page === 'desafio') return <UseCasePage setPage={setPage} useCase={useCase} origin={origin} />
+  if (page === 'detalle' || page === 'desafio') return <UseCasePage setPage={setPage} useCase={useCase} origin={origin} onAsk={askCommunity} />
   if (page === 'progreso') return <ProgressPage setPage={setPage} />
+  if (page === 'ayuda') {
+    return <HelpPage setPage={setPage} openCase={openCase} askCaseId={askCaseId} clearAsk={() => setAskCaseId(null)} />
+  }
   return <ProfilePage setPage={setPage} onLogout={onLogout} />
 }
 

@@ -15,11 +15,16 @@ function startedCases(useCases, progress) {
     .sort((a, b) => String(progress[b.id].updated_at ?? '').localeCompare(String(progress[a.id].updated_at ?? '')))
 }
 
+function completedCases(useCases, progress) {
+  return useCases.filter((item) => progress[item.id]?.status === 'completed' || progress[item.id]?.progress >= 100)
+}
+
 export function HomePage({ setPage, openCase }) {
   const { data } = useSkillbotData()
   const daily = caseOfTheDay(data.useCases)
   const DailyIcon = daily ? caseIcon(daily) : null
   const started = startedCases(data.useCases, data.progress)
+  const completed = completedCases(data.useCases, data.progress)
   return (
     <Layout page="inicio" setPage={setPage}>
       <section className="page home-page">
@@ -72,8 +77,22 @@ export function HomePage({ setPage, openCase }) {
           </div>
         )}
 
+        {completed.length > 0 && (
+          <>
+            <div className="section-heading">
+              <div>
+                <h2>Completados</h2>
+                <p>{completed.length === 1 ? 'Ya terminaste 1 caso.' : `Ya terminaste ${completed.length} casos.`} Podés abrirlos para repasar.</p>
+              </div>
+            </div>
+            <div className="use-cases-grid">
+              {completed.map((item) => <UseCaseCard key={item.id} item={item} onOpen={(id) => openCase(id, 'inicio')} />)}
+            </div>
+          </>
+        )}
+
         <p className="home-side">
-          <span>{data.completedCount} prácticas completadas · {data.profile.xp} XP</span>
+          <span>{data.completedCount} {data.completedCount === 1 ? 'práctica completada' : 'prácticas completadas'} · {data.profile.xp} XP</span>
           <button type="button" className="text-button" onClick={() => setPage('progreso')}>Ver progreso</button>
         </p>
       </section>

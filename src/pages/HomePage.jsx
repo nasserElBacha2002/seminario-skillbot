@@ -1,16 +1,25 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, MessagesSquare, Search } from 'lucide-react'
 import { useSkillbotData } from '../context/SkillbotData'
 import { caseOfTheDay } from '../lib/daily'
-import { recentCaseId } from '../lib/storage'
-import { CaseBrowser } from '../components/CaseBrowser'
 import { Layout } from '../components/Layout'
+import { UseCaseCard } from '../components/UseCaseCard'
 import { caseIcon } from '../components/icons'
+
+// Casos empezados y sin terminar, el último que se tocó primero.
+function startedCases(useCases, progress) {
+  return useCases
+    .filter((item) => {
+      const entry = progress[item.id]
+      return entry && entry.status !== 'completed' && entry.progress < 100
+    })
+    .sort((a, b) => String(progress[b.id].updated_at ?? '').localeCompare(String(progress[a.id].updated_at ?? '')))
+}
 
 export function HomePage({ setPage, openCase }) {
   const { data } = useSkillbotData()
-  const recent = data.useCases.find((item) => item.id === recentCaseId())
   const daily = caseOfTheDay(data.useCases)
   const DailyIcon = daily ? caseIcon(daily) : null
+  const started = startedCases(data.useCases, data.progress)
   return (
     <Layout page="inicio" setPage={setPage}>
       <section className="page home-page">
@@ -31,13 +40,38 @@ export function HomePage({ setPage, openCase }) {
             </button>
           </article>
         )}
-        <CaseBrowser searchId="home-search" onOpen={(id) => openCase(id, 'inicio')} />
-        {recent && (
-          <button type="button" className="continue-mini" onClick={() => openCase(recent.id, 'inicio')}>
-            <span>Seguir con</span>
-            <b>{recent.title}</b>
+
+        <button type="button" className="help-banner" onClick={() => setPage('ayuda')}>
+          <span><MessagesSquare size={20} /></span>
+          <div>
+            <b>¿Conocés el nuevo centro de ayuda?</b>
+            <small>Preguntá tus dudas y ayudá a otros usuarios con las suyas.</small>
+          </div>
+          <em>Ir al centro de ayuda <ArrowRight size={15} /></em>
+        </button>
+
+        <div className="section-heading">
+          <div>
+            <h2>Seguí donde quedaste</h2>
+            <p>{started.length ? 'Los casos que empezaste y todavía no terminaste.' : 'Todavía no empezaste ningún caso.'}</p>
+          </div>
+          <button type="button" className="text-button" onClick={() => setPage('explorar')}>
+            Ver todos los casos <ArrowRight size={14} />
           </button>
+        </div>
+        {started.length > 0 ? (
+          <div className="use-cases-grid">
+            {started.map((item) => <UseCaseCard key={item.id} item={item} onOpen={(id) => openCase(id, 'inicio')} />)}
+          </div>
+        ) : (
+          <div className="home-empty">
+            <p>Empezá por el caso de hoy o buscá uno parecido a lo que necesitás.</p>
+            <button type="button" className="secondary" onClick={() => setPage('explorar')}>
+              <Search size={15} /> Explorar casos
+            </button>
+          </div>
         )}
+
         <p className="home-side">
           <span>{data.completedCount} prácticas completadas · {data.profile.xp} XP</span>
           <button type="button" className="text-button" onClick={() => setPage('progreso')}>Ver progreso</button>

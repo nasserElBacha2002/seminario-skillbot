@@ -252,3 +252,11 @@ a.secondary{text-decoration:none}
 .case-ask .secondary{flex:none}
 @media(max-width:850px){.help-steps{grid-template-columns:1fr 1fr}}
 @media(max-width:570px){.help-intro{flex-direction:column;align-items:stretch}.help-steps{grid-template-columns:1fr}.topic-form-actions{flex-direction:column-reverse}.reply-form .primary{justify-self:stretch}.case-ask{flex-direction:column;align-items:flex-start}.help-tabs button{flex:1}}
+.help-banner{width:100%;margin-top:16px;display:flex;align-items:center;gap:14px;text-align:left;background:#292647;color:#fff;border-radius:15px;padding:16px 20px;transition:.2s}
+.help-banner:hover{background:#332f58}
+.help-banner>span{width:40px;height:40px;flex:none;border-radius:11px;background:#3e3a63;color:#c9c4eb;display:grid;place-items:center}
+.help-banner b{display:block;font-size:15px}.help-banner small{display:block;font-size:12px;color:#dedbea;margin-top:3px}
+.help-banner em{margin-left:auto;flex:none;display:flex;align-items:center;gap:6px;font-style:normal;font-size:12px;font-weight:700;color:#d5d1ff}
+.home-empty{background:#fff;border:1px dashed #dcd8ec;border-radius:15px;padding:22px;display:flex;align-items:center;gap:16px;justify-content:space-between}
+.home-empty p{font-size:13px;color:#6f6d80;margin:0}.home-empty .secondary{margin:0;flex:none}
+@media(max-width:570px){.help-banner{flex-wrap:wrap}.help-banner em{margin-left:54px}.home-empty{flex-direction:column;align-items:stretch}}

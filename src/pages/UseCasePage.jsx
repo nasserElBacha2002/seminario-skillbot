@@ -100,6 +100,17 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
     saveSession(useCase.id, { stage: 'keys' })
   }
 
+  // Próximo desafío sin resolver después del actual, dando la vuelta. No cuenta el actual,
+  // así un error permite saltearlo y volver a él al final.
+  function pendingAfter(from) {
+    const done = new Set(answeredPositions(useCase.id, data.doneChallenges?.[useCase.id]))
+    for (let step = 1; step < challenges.length; step += 1) {
+      const index = (from + step) % challenges.length
+      if (!done.has(challenges[index].position)) return index
+    }
+    return -1
+  }
+
   function showResult() {
     const values = loadDraft(useCase.id) ?? {}
     const text = buildPrompt(useCase, values)
@@ -202,13 +213,15 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
             challenge={challenges[round]}
             index={round}
             total={challenges.length}
+            hasPendingOther={pendingAfter(round) !== -1}
             onAnswer={answer}
             onContinue={() => {
-              const next = nextChallengeIndex(challenges, answeredPositions(useCase.id, data.doneChallenges?.[useCase.id]))
-              if (next === -1) showResult()
-              else {
+              const next = pendingAfter(round)
+              if (next !== -1) {
                 setRound(next)
                 saveSession(useCase.id, { stage: 'practice', round: next })
+              } else if (nextChallengeIndex(challenges, answeredPositions(useCase.id, data.doneChallenges?.[useCase.id])) === -1) {
+                showResult()
               }
             }}
           />

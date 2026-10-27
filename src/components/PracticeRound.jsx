@@ -11,13 +11,12 @@ export function closingLine(challenge) {
   return CLOSING[challenge.type] || challenge.title
 }
 
-export function PracticeRound({ challenge, index, total, onAnswer, onContinue }) {
+export function PracticeRound({ challenge, index, total, hasPendingOther, onAnswer, onContinue }) {
   const [selected, setSelected] = useState(null)
   const [result, setResult] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const option = challenge.options.find((item) => item.letter === selected)
-  const last = index === total - 1
 
   async function confirm() {
     if (!option || saving) return
@@ -105,9 +104,15 @@ export function PracticeRound({ challenge, index, total, onAnswer, onContinue })
                   Intentar de nuevo <RotateCcw size={16} />
                 </button>
               )}
-              <button type="button" className={result.correct ? 'primary' : 'secondary'} onClick={onContinue}>
-                {last ? 'Ver el cierre' : 'Siguiente desafío'} <ArrowRight size={17} />
-              </button>
+              {result.correct ? (
+                <button type="button" className="primary" onClick={onContinue}>
+                  {hasPendingOther ? 'Siguiente desafío' : 'Ver el cierre'} <ArrowRight size={17} />
+                </button>
+              ) : hasPendingOther && (
+                <button type="button" className="secondary" onClick={onContinue}>
+                  Saltear por ahora <ArrowRight size={17} />
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -30,11 +30,13 @@ export function googleStartMessage(error) {
 }
 
 export function GoogleButton({ disabled, onError }) {
-  const { signInWithGoogle } = useAuth()
+  const { signInWithGoogle, clearAuthNotice } = useAuth()
   const [busy, setBusy] = useState(false)
 
   async function handleClick() {
-    if (busy) return
+    if (busy || disabled) return
+    clearAuthNotice()
+    onError?.('')
     setBusy(true)
     try {
       await signInWithGoogle()

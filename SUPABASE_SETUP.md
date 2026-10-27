@@ -118,23 +118,76 @@ Confirmar:
 
 ## 5.1 Google (Fase 5)
 
+La app tiene un solo botón **Continuar con Google**. Usa `signInWithOAuth({ provider: 'google', redirectTo: window.location.origin })`. La sesión entra por `onAuthStateChange`. No hay Client Secret en el frontend ni en `.env.local`.
+
+### Google Cloud OAuth Client
+
+Google Cloud Console → **APIs & Services → Credentials → Create credentials → OAuth client ID**.
+
+Tipo:
+
+```text
+Web application
+```
+
+**Authorized JavaScript origins** (desarrollo):
+
+```text
+http://localhost:5173
+http://127.0.0.1:5173
+```
+
+Cuando exista un deploy, agregar ahí la origin real. No hay URL de producción en este repo; no inventar una.
+
+**Authorized redirect URI:**
+
+```text
+https://<project-ref>.supabase.co/auth/v1/callback
+```
+
+Copiar la callback **exacta** que muestra el Dashboard de Supabase en el proveedor Google (a veces incluye el project-ref o un host de Auth local). En `supabase start`, usar la callback de esa instancia, no una URL de producción.
+
+### Supabase Google Provider
+
 Dashboard → **Authentication → Providers → Google**.
 
-Pasos imprescindibles (no hay acceso al dashboard desde este repo):
+- Habilitar el provider.
+- Pegar **Client ID**.
+- Pegar **Client Secret**.
+- Nunca poner el Client Secret en el frontend, `.env.local` ni git. Queda solo en el dashboard (o, si se usa Auth local, en el secret de entorno del CLI: `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`, no en Vite).
 
-1. Crear credenciales OAuth en Google Cloud Console (tipo **Web application**).
-2. En el proveedor Google de Supabase: habilitarlo, pegar **Client ID** y **Client Secret**. Esos secretos quedan en el dashboard, no en el frontend ni en `.env.local`.
-3. Callback URL que pide Supabase (Authorized redirect URI en Google Cloud):
+### URL Configuration
 
-   `https://<project-ref>.supabase.co/auth/v1/callback`
+Dashboard → **Authentication → URL Configuration**. Para desarrollo:
 
-   En local con `supabase start`, el callback es el de esa instancia (lo muestra Studio / Auth), no una URL de producción inventada.
-4. En **Authentication → URL Configuration**, Site URL y Redirect URLs de la app tienen que incluir los orígenes reales (`http://localhost:5173` y `http://127.0.0.1:5173` en desarrollo). El cliente usa `redirectTo: window.location.origin`.
-5. Prueba con **usuario nuevo** (cuenta que no exista): Continuar con Google → callback → sesión → app y fila en `public.profiles`.
-6. Prueba con **usuario existente** que ya tenga identidad Google.
-7. Prueba con email/password previo y el mismo email en Google: el resultado depende del dashboard remoto (confirmación de email / linking automático). `enable_manual_linking` sigue en `false`. No se implementó linking manual. Dejar esa combinación como prueba remota.
+```text
+Site URL:
+http://localhost:5173
 
-`handle_new_user` ya toma `display_name` / `full_name` / `name` / email. `profiles` no tiene columna de avatar: se siguen usando initials.
+Redirect URLs:
+http://localhost:5173
+http://127.0.0.1:5173
+```
+
+El cliente redirige a `window.location.origin`. No inventar URL de producción. Cuando exista, sumarla a Site URL / Redirect URLs y a las origins de Google Cloud.
+
+### Account linking
+
+No se implementó linking manual. `enable_manual_linking` sigue en `false`.
+
+Supabase puede vincular automáticamente una identidad OAuth (Google) a un usuario existente con el **mismo email**, cuando el proyecto lo permite (por ejemplo si el email ya está confirmado). Eso lo resuelve Auth remoto; la app no une cuentas a mano.
+
+Prueba remota obligatoria:
+
+```text
+cuenta email/password existente
+→ Continuar con Google con mismo email
+→ verificar auth.users / identities
+```
+
+También probar usuario Google **nuevo** y uno que **ya tenga** identidad Google.
+
+`handle_new_user` toma `display_name` / `full_name` / `name` / email para `display_name` e `initials`. `profiles` no tiene columna de avatar.
 
 ## 6. Site URL y Redirect URLs
 
@@ -449,31 +502,28 @@ Datos afectados al aplicar la migración:
 
 ## 14. Checklist final
 
-- [ ] Abrí el proyecto correcto de Supabase.
-- [ ] Confirmé URL y anon key.
-- [ ] Apliqué las migraciones nuevas (`20261027120000`, `20261027130000`, `20261027140000`, `20261027150000`, `20261027160000`).
-- [ ] Apliqué la migration correctiva y verifiqué profile read-only / RPC / A vs B (checklist de Correcciones de seguridad).
-- [ ] Verifiqué Email Auth.
-- [ ] Configuré Site URL.
-- [ ] Configuré Redirect URLs.
-- [ ] Creé usuario A.
-- [ ] Creé usuario B.
-- [ ] Probé login.
-- [ ] Probé refresh.
-- [ ] Probé logout.
-- [ ] Confirmé aislamiento A/B.
-- [ ] Confirmé RLS.
-- [ ] Confirmé RPCs.
-- [ ] Confirmé creación automática de profile.
-- [ ] Confirmé que el catálogo público sigue funcionando.
-- [ ] Verifiqué Allow new users to sign up.
-- [ ] Registré un usuario desde la app y coinciden los UUID.
-- [ ] Confirmé display_name e initials del registro.
-- [ ] Si hay confirmación de email, vi “Revisá tu correo”.
-- [ ] Si no hay confirmación, el registro entra solo a Home.
-- [ ] Logout y login posterior de esa cuenta funcionan.
-- [ ] Habilité Google (Client ID, Client Secret, callback de Supabase).
-- [ ] Site URL / Redirect URLs cubren el origen de la app.
-- [ ] Probé Continuar con Google con usuario nuevo.
-- [ ] Probé Continuar con Google con usuario Google existente.
-- [ ] Probé el mismo email email/password + Google (linking automático del dashboard; no hay linking manual).
+- [ ] Proyecto correcto de Supabase (el de `.env.local`).
+- [ ] `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (sin `service_role`).
+- [ ] Migraciones aplicadas hasta `20261027160000`.
+- [ ] Email Auth habilitado y **Allow new users to sign up**.
+- [ ] Site URL: `http://localhost:5173`.
+- [ ] Redirect URLs: `http://localhost:5173` y `http://127.0.0.1:5173`.
+- [ ] OAuth client tipo **Web application** en Google Cloud.
+- [ ] Authorized JavaScript origins: `http://localhost:5173` y `http://127.0.0.1:5173`.
+- [ ] Authorized redirect URI = callback exacta de Supabase (`https://<project-ref>.supabase.co/auth/v1/callback` o la que muestre el Dashboard).
+- [ ] Client ID y Client Secret pegados en **Authentication → Providers → Google** (no en frontend / `.env.local` / git).
+- [ ] Provider Google habilitado.
+- [ ] Usuario Google nuevo: Continuar con Google → sesión → app.
+- [ ] Fila en `auth.users`.
+- [ ] `public.profiles.id = auth.users.id`.
+- [ ] `display_name` / `initials` desde metadata o email.
+- [ ] Logout y volver a entrar con Google.
+- [ ] Progreso de esa cuenta persiste tras refresh / re-login.
+- [ ] Cuenta email/password existente → Continuar con Google con el mismo email → revisar `auth.users` / identities (linking automático de Supabase; no hay linking manual).
+- [ ] Dos usuarios (A y B) y aislamiento de progreso.
+- [ ] Usuario solo Google: Mi cuenta no muestra cambiar contraseña.
+- [ ] Recovery de contraseña (email/password).
+- [ ] Edición de nombre (`update_profile_name`).
+- [ ] Bloqueo de UPDATE directo de XP en `profiles`.
+- [ ] Bloqueo de escrituras directas de progreso fuera de RPC.
+- [ ] Progreso normal (resolver caso / challenge) vía RPC.

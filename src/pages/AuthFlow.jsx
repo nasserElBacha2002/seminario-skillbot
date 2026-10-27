@@ -6,9 +6,19 @@ import { Register } from './Register'
 import { UpdatePassword } from './UpdatePassword'
 
 export function AuthFlow() {
-  const { passwordRecovery } = useAuth()
+  const { passwordRecovery, clearAuthNotice } = useAuth()
   const [view, setView] = useState('login')
   const [email, setEmail] = useState('')
+
+  function showLogin() {
+    clearAuthNotice()
+    setView('login')
+  }
+
+  function showRegister() {
+    clearAuthNotice()
+    setView('register')
+  }
 
   if (passwordRecovery) {
     return <UpdatePassword />
@@ -19,7 +29,7 @@ export function AuthFlow() {
       <Register
         email={email}
         onEmailChange={setEmail}
-        onLogin={() => setView('login')}
+        onLogin={showLogin}
       />
     )
   }
@@ -29,7 +39,7 @@ export function AuthFlow() {
       <ForgotPassword
         email={email}
         onEmailChange={setEmail}
-        onLogin={() => setView('login')}
+        onLogin={showLogin}
       />
     )
   }
@@ -38,7 +48,7 @@ export function AuthFlow() {
     <Login
       email={email}
       onEmailChange={setEmail}
-      onRegister={() => setView('register')}
+      onRegister={showRegister}
       onForgot={() => setView('forgot')}
     />
   )

@@ -4,14 +4,65 @@ import { setStorageOwner } from '../lib/storage'
 
 const AuthContext = createContext(null)
 
+const OAUTH_ERROR_KEYS = ['error', 'error_code', 'error_description', 'error_uri']
+
+function readSearchAndHash() {
+  const url = new URL(window.location.href)
+  return {
+    url,
+    search: url.searchParams,
+    hash: new URLSearchParams(url.hash.replace(/^#/, '')),
+  }
+}
+
 function oauthCallbackMessage() {
-  const search = new URLSearchParams(window.location.search)
-  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const { search, hash } = readSearchAndHash()
   const error = search.get('error') || hash.get('error')
   if (!error) return ''
   const code = String(search.get('error_code') || hash.get('error_code') || error).toLowerCase()
   if (code.includes('access_denied')) return 'Cancelaste el acceso con Google.'
   return 'No pudimos completar el acceso con Google. Intentá nuevamente.'
+}
+
+function authCallbackStillNeeded(search, hash) {
+  const type = search.get('type') || hash.get('type')
+  return Boolean(
+    search.get('code')
+    || hash.get('code')
+    || search.get('access_token')
+    || hash.get('access_token')
+    || search.get('refresh_token')
+    || hash.get('refresh_token')
+    || search.get('token_hash')
+    || hash.get('token_hash')
+    || type === 'recovery'
+    || type === 'signup'
+    || type === 'magiclink'
+  )
+}
+
+function clearConsumedOAuthErrorParams() {
+  const { url, search, hash } = readSearchAndHash()
+  if (!(search.get('error') || hash.get('error'))) return
+  if (authCallbackStillNeeded(search, hash)) return
+
+  let changed = false
+  for (const key of OAUTH_ERROR_KEYS) {
+    if (search.has(key)) {
+      search.delete(key)
+      changed = true
+    }
+    if (hash.has(key)) {
+      hash.delete(key)
+      changed = true
+    }
+  }
+  if (!changed) return
+
+  const nextSearch = search.toString()
+  const nextHash = hash.toString()
+  const next = `${url.pathname}${nextSearch ? `?${nextSearch}` : ''}${nextHash ? `#${nextHash}` : ''}`
+  window.history.replaceState(window.history.state, '', next)
 }
 
 function isOAuthCallbackFailure(error) {
@@ -91,6 +142,10 @@ export function AuthProvider({ children }) {
           setError(sessionError)
         }
         setLoading(false)
+      })
+      .finally(() => {
+        if (cancelled || !notice) return
+        clearConsumedOAuthErrorParams()
       })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
@@ -175,6 +230,10 @@ export function AuthProvider({ children }) {
     setPasswordRecovery(false)
   }, [])
 
+  const clearAuthNotice = useCallback(() => {
+    setAuthNotice('')
+  }, [])
+
   const reload = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -205,6 +264,7 @@ export function AuthProvider({ children }) {
       loading,
       error,
       authNotice,
+      clearAuthNotice,
       signIn,
       signUp,
       signInWithGoogle,
@@ -214,7 +274,7 @@ export function AuthProvider({ children }) {
       completePasswordRecovery,
       reload,
     }),
-    [session, passwordRecovery, loading, error, authNotice, signIn, signUp, signInWithGoogle, signOut, resetPasswordForEmail, updatePassword, completePasswordRecovery, reload],
+    [session, passwordRecovery, loading, error, authNotice, clearAuthNotice, signIn, signUp, signInWithGoogle, signOut, resetPasswordForEmail, updatePassword, completePasswordRecovery, reload],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

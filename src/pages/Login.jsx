@@ -22,7 +22,7 @@ function loginMessage(error) {
 }
 
 export function Login({ email, onEmailChange, onRegister, onForgot }) {
-  const { signIn, authNotice } = useAuth()
+  const { signIn, authNotice, clearAuthNotice } = useAuth()
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -30,6 +30,7 @@ export function Login({ email, onEmailChange, onRegister, onForgot }) {
 
   async function handleSubmit(event) {
     event.preventDefault()
+    clearAuthNotice()
     const nextEmail = email.trim()
     if (!nextEmail || !password) {
       setError('Completá el email y la contraseña.')

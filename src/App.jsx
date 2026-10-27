@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
+import { AuthProvider, useAuth } from './context/Auth'
 import { SkillbotDataProvider, useSkillbotData } from './context/SkillbotData'
 import { Boot, BootError } from './components/Boot'
 import { rememberCase } from './lib/storage'
 import { ExplorePage } from './pages/ExplorePage'
 import { HomePage } from './pages/HomePage'
-import { Login } from './pages/Login'
+import { AuthFlow } from './pages/AuthFlow'
 import { ProfilePage } from './pages/ProfilePage'
 import { ProgressPage } from './pages/ProgressPage'
 import { UseCasePage } from './pages/UseCasePage'
 
-function Shell({ onLogout }) {
+function Shell() {
   const { data, loading, error, reload } = useSkillbotData()
   const [page, setPage] = useState('inicio')
   const [caseId, setCaseId] = useState(null)
@@ -37,18 +38,25 @@ function Shell({ onLogout }) {
   if (page === 'explorar') return <ExplorePage setPage={setPage} openCase={openCase} />
   if (page === 'detalle' || page === 'desafio') return <UseCasePage setPage={setPage} useCase={useCase} origin={origin} />
   if (page === 'progreso') return <ProgressPage setPage={setPage} />
-  return <ProfilePage setPage={setPage} onLogout={onLogout} />
+  return <ProfilePage setPage={setPage} />
+}
+
+function Gate() {
+  const { session, loading, error, reload } = useAuth()
+  if (loading) return <Boot />
+  if (error && !session) return <BootError error={error} onRetry={reload} />
+  if (!session) return <AuthFlow />
+  return (
+    <SkillbotDataProvider>
+      <Shell />
+    </SkillbotDataProvider>
+  )
 }
 
 export default function App() {
-  const [logged, setLogged] = useState(() => localStorage.getItem('skillbot-demo') === 'yes')
-  useEffect(() => {
-    if (logged) localStorage.setItem('skillbot-demo', 'yes')
-  }, [logged])
-  if (!logged) return <Login onLogin={() => setLogged(true)} />
   return (
-    <SkillbotDataProvider>
-      <Shell onLogout={() => { localStorage.removeItem('skillbot-demo'); setLogged(false) }} />
-    </SkillbotDataProvider>
+    <AuthProvider>
+      <Gate />
+    </AuthProvider>
   )
 }

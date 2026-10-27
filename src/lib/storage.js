@@ -1,9 +1,21 @@
-const draftKey = (id) => `skillbot:draft:${id}`
-const resultKey = (id) => `skillbot:result:${id}`
-const sessionKey = (id) => `skillbot:session:${id}`
-const RECENT_KEY = 'skillbot:recent'
+let ownerId = null
+
+export function setStorageOwner(userId) {
+  ownerId = userId || null
+}
+
+const draftKey = (id) => ownerKey('draft', id)
+const resultKey = (id) => ownerKey('result', id)
+const sessionKey = (id) => ownerKey('session', id)
+const recentKey = () => ownerKey('recent')
+
+function ownerKey(kind, useCaseId) {
+  if (!ownerId) return null
+  return useCaseId ? `skillbot:${ownerId}:${kind}:${useCaseId}` : `skillbot:${ownerId}:${kind}`
+}
 
 function read(key) {
+  if (!key) return null
   try {
     const raw = localStorage.getItem(key)
     return raw ? JSON.parse(raw) : null
@@ -13,6 +25,7 @@ function read(key) {
 }
 
 function write(key, value) {
+  if (!key) return false
   try {
     localStorage.setItem(key, value)
     return true
@@ -64,8 +77,10 @@ export function saveSession(useCaseId, patch) {
 }
 
 export function clearSession(useCaseId) {
+  const key = sessionKey(useCaseId)
+  if (!key) return false
   try {
-    localStorage.removeItem(sessionKey(useCaseId))
+    localStorage.removeItem(key)
     return true
   } catch {
     return false
@@ -73,12 +88,21 @@ export function clearSession(useCaseId) {
 }
 
 export function rememberCase(useCaseId) {
-  return write(RECENT_KEY, useCaseId)
+  const key = recentKey()
+  if (!key) return false
+  try {
+    localStorage.setItem(key, useCaseId)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function recentCaseId() {
+  const key = recentKey()
+  if (!key) return null
   try {
-    return localStorage.getItem(RECENT_KEY)
+    return localStorage.getItem(key)
   } catch {
     return null
   }

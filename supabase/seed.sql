@@ -1,8 +1,9 @@
--- Esqueleto y catalogo: niveles, perfil demo, habilidades, logros y los casos
--- de uso con sus pasos, herramientas y desafios.
+-- Esqueleto y catalogo: niveles, habilidades, logros y los casos de uso con
+-- sus pasos, herramientas y desafios.
 --
--- A proposito NO siembra progreso del usuario (avance, actividad, logros
--- desbloqueados, XP). El perfil arranca en cero y se llena practicando.
+-- A proposito NO siembra usuarios ni progreso. Cada cuenta de Supabase Auth
+-- crea su fila en profiles via el trigger on_auth_user_created y arranca en
+-- cero. El progreso se llena practicando.
 --
 -- Idempotente: se puede volver a correr sin duplicar nada. Las filas hijas
 -- (pasos, opciones, herramientas) se actualizan por clave, asi que si se saca
@@ -20,18 +21,8 @@ on conflict (id) do update
       next_xp = excluded.next_xp,
       sort_order = excluded.sort_order;
 
--- Unico perfil de la demo. Tiene que existir: el frontend lo lee por el id
--- fijo de demo_profile_id().
-insert into public.profiles (id, display_name, initials, goal, interests, xp, level_id) values (
-  public.demo_profile_id(),
-  'Martín',
-  'MR',
-  'Aprender a elegir y utilizar herramientas de IA para resolver tareas cotidianas.',
-  array['Productividad', 'Generación de contenido', 'Investigación'],
-  0,
-  'principiante'
-)
-on conflict (id) do nothing;
+-- Los perfiles de producto los crea el trigger public.handle_new_user()
+-- cuando nace un usuario en auth.users. No se siembra un perfil demo.
 
 -- Taxonomia de habilidades. Cada caso de uso apunta a una mediante
 -- use_cases.skill_id. Los valores por usuario no se siembran:
@@ -517,10 +508,6 @@ where c.id in ('administracion', 'vinculacion', 'explicacion-ia', 'diseno', 'pro
   and not exists (
     select 1 from public.use_case_categories uc where uc.category_id = c.id
   );
-
-update public.profiles
-   set goal = 'Resolver tareas concretas usando IA, sin tener que saber de antemano qué herramienta elegir.'
- where id = public.demo_profile_id();
 
 update public.use_cases set output_template = $tpl$Necesito preparar una presentación. Trabajemos primero el contenido, sin diseñar todavía.
 

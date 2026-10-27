@@ -1,9 +1,26 @@
+import { useState } from 'react'
 import { ChevronRight, LogOut } from 'lucide-react'
 import { Layout } from '../components/Layout'
+import { useAuth } from '../context/Auth'
 import { useSkillbotData } from '../context/SkillbotData'
 
-export function ProfilePage({ setPage, onLogout }) {
+export function ProfilePage({ setPage }) {
   const { data } = useSkillbotData()
+  const { signOut } = useAuth()
+  const [error, setError] = useState('')
+  const [leaving, setLeaving] = useState(false)
+
+  async function handleLogout() {
+    setError('')
+    setLeaving(true)
+    try {
+      await signOut()
+    } catch {
+      setError('No pudimos cerrar la sesión. Intentá nuevamente.')
+      setLeaving(false)
+    }
+  }
+
   return (
     <Layout page="perfil" setPage={setPage}>
       <section className="page profile-page">
@@ -25,11 +42,15 @@ export function ProfilePage({ setPage, onLogout }) {
           </article>
           <article className="settings-list">
             <p className="eyebrow">CUENTA</p>
-            <button type="button" className="logout" onClick={onLogout}>
+            <button type="button" className="logout" onClick={handleLogout} disabled={leaving}>
               <span><LogOut size={18} /></span>
-              <div><b>Cerrar sesión</b><small>Volver a la pantalla de ingreso</small></div>
+              <div>
+                <b>{leaving ? 'Cerrando sesión…' : 'Cerrar sesión'}</b>
+                <small>Volver a la pantalla de ingreso</small>
+              </div>
               <ChevronRight size={18} />
             </button>
+            {error && <p className="save-error" role="alert">{error}</p>}
           </article>
         </div>
       </section>

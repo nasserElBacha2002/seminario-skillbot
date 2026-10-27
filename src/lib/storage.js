@@ -1,10 +1,21 @@
-const draftKey = (id) => `skillbot:draft:${id}`
-const resultKey = (id) => `skillbot:result:${id}`
-const sessionKey = (id) => `skillbot:session:${id}`
-const RECENT_KEY = 'skillbot:recent'
-const MY_TOPICS_KEY = 'skillbot:my-topics'
+let ownerId = null
+
+export function setStorageOwner(userId) {
+  ownerId = userId || null
+}
+
+const draftKey = (id) => ownerKey('draft', id)
+const resultKey = (id) => ownerKey('result', id)
+const sessionKey = (id) => ownerKey('session', id)
+const recentKey = () => ownerKey('recent')
+
+function ownerKey(kind, useCaseId) {
+  if (!ownerId) return null
+  return useCaseId ? `skillbot:${ownerId}:${kind}:${useCaseId}` : `skillbot:${ownerId}:${kind}`
+}
 
 function read(key) {
+  if (!key) return null
   try {
     const raw = localStorage.getItem(key)
     return raw ? JSON.parse(raw) : null
@@ -14,6 +25,7 @@ function read(key) {
 }
 
 function write(key, value) {
+  if (!key) return false
   try {
     localStorage.setItem(key, value)
     return true
@@ -65,8 +77,10 @@ export function saveSession(useCaseId, patch) {
 }
 
 export function clearSession(useCaseId) {
+  const key = sessionKey(useCaseId)
+  if (!key) return false
   try {
-    localStorage.removeItem(sessionKey(useCaseId))
+    localStorage.removeItem(key)
     return true
   } catch {
     return false
@@ -74,23 +88,23 @@ export function clearSession(useCaseId) {
 }
 
 export function rememberCase(useCaseId) {
-  return write(RECENT_KEY, useCaseId)
+  const key = recentKey()
+  if (!key) return false
+  try {
+    localStorage.setItem(key, useCaseId)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function recentCaseId() {
+  const key = recentKey()
+  if (!key) return null
   try {
-    return localStorage.getItem(RECENT_KEY)
+    return localStorage.getItem(key)
   } catch {
     return null
   }
 }
 
-// Todos escriben como el perfil demo, así que "mío" es lo que se publicó desde este navegador.
-export function myTopicIds() {
-  const ids = read(MY_TOPICS_KEY)
-  return new Set(Array.isArray(ids) ? ids : [])
-}
-
-export function rememberMyTopic(topicId) {
-  return write(MY_TOPICS_KEY, JSON.stringify([...myTopicIds(), topicId]))
-}

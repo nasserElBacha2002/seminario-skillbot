@@ -1,35 +1,105 @@
-import { ArrowRight, Bot, Sparkles, Zap } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowRight, LoaderCircle } from 'lucide-react'
+import { AuthLayout } from '../components/AuthLayout'
 import { Logo } from '../components/Layout'
+import { useAuth } from '../context/Auth'
 
-export function Login({ onLogin }) {
+function loginMessage(error) {
+  const code = String(error?.code ?? '')
+  const status = error?.status
+  const text = String(error?.message ?? '').toLowerCase()
+  if (
+    status === 400
+    || code === 'invalid_credentials'
+    || text.includes('invalid login')
+    || text.includes('invalid credentials')
+    || text.includes('email not confirmed')
+  ) {
+    return 'Email o contraseña incorrectos.'
+  }
+  return 'No pudimos iniciar sesión. Intentá nuevamente.'
+}
+
+export function Login({ email, onEmailChange, onRegister }) {
+  const { signIn } = useAuth()
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+    const nextEmail = email.trim()
+    if (!nextEmail || !password) {
+      setError('Completá el email y la contraseña.')
+      return
+    }
+    setError('')
+    setSubmitting(true)
+    try {
+      await signIn(nextEmail, password)
+    } catch (signInError) {
+      setError(loginMessage(signInError))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
-    <div className="login">
-      <section className="login-panel">
-        <Logo />
-        <div className="login-copy">
-          <p className="eyebrow">EMPEZÁ POR EL PROBLEMA</p>
-          <h1>Bienvenido a<br /><em>SkillBot</em></h1>
-          <p>Decinos qué necesitás resolver. Te armamos un pedido listo para usar con IA.</p>
-        </div>
-        <div className="login-art">
-          <div className="art-card a"><Bot size={28} /><b>Resolvé</b><small>una tarea concreta</small></div>
-          <div className="art-card b"><Sparkles size={24} /><b>Llevate</b><small>un pedido listo</small></div>
-          <div className="art-orb"><Zap size={33} fill="currentColor" /></div>
-          <i className="line l1" /><i className="line l2" />
-        </div>
-        <small className="login-footer">SkillBot · De la necesidad al resultado</small>
-      </section>
-      <section className="login-form-wrap">
-        <form className="login-form" onSubmit={(event) => { event.preventDefault(); onLogin() }}>
-          <div className="mobile-logo"><Logo /></div>
-          <h2>Entrá a la demo</h2>
-          <p>No hace falta una cuenta real. Entrá y elegí qué querés resolver.</p>
-          <label>Email<input type="email" autoComplete="username" placeholder="nombre@ejemplo.com" defaultValue="martin@email.com" /></label>
-          <label>Contraseña<input type="password" autoComplete="current-password" placeholder="••••••••" defaultValue="12345678" /></label>
-          <button type="submit" className="primary login-button">Entrar <ArrowRight size={18} /></button>
-          <p className="demo-note"><Sparkles size={15} /> Demo académica · Podés ingresar con cualquier dato</p>
-        </form>
-      </section>
-    </div>
+    <AuthLayout>
+      <form className="login-form" onSubmit={handleSubmit} noValidate>
+        <div className="mobile-logo"><Logo /></div>
+        <h2>Iniciá sesión</h2>
+        <p>Entrá con tu email y contraseña para continuar.</p>
+        <label>
+          Email
+          <input
+            type="email"
+            autoComplete="email"
+            placeholder="nombre@ejemplo.com"
+            value={email}
+            onChange={(event) => {
+              onEmailChange(event.target.value)
+              if (error) setError('')
+            }}
+            disabled={submitting}
+            aria-invalid={Boolean(error)}
+          />
+        </label>
+        <label>
+          Contraseña
+          <input
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(event) => {
+              setPassword(event.target.value)
+              if (error) setError('')
+            }}
+            disabled={submitting}
+            aria-invalid={Boolean(error)}
+          />
+        </label>
+        {error && <p className="login-error" role="alert">{error}</p>}
+        <button type="submit" className="primary login-button" disabled={submitting} aria-busy={submitting}>
+          {submitting ? <LoaderCircle size={18} className="spin" /> : null}
+          {submitting ? 'Entrando…' : 'Entrar'}
+          {submitting ? null : <ArrowRight size={18} />}
+        </button>
+        <p className="login-switch">
+          ¿No tenés cuenta?{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setPassword('')
+              setError('')
+              onRegister()
+            }}
+          >
+            Crear cuenta
+          </button>
+        </p>
+      </form>
+    </AuthLayout>
   )
 }

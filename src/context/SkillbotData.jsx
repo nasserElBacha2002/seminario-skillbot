@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useAuth } from './Auth'
 import {
   clearCaseSteps,
   completePracticeChallenge,
@@ -80,23 +81,28 @@ async function loadWithAchievements() {
 }
 
 export function SkillbotDataProvider({ children }) {
+  const { user } = useAuth()
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const dataRef = useRef(null)
   dataRef.current = data
 
   const reload = useCallback(async () => {
+    if (!user?.id) return
     try {
       setError(null)
       setData(derive(await fetchSkillbotData()))
     } catch (e) {
       setError(e)
     }
-  }, [])
+  }, [user?.id])
 
   useEffect(() => {
+    setData(null)
+    setError(null)
+    if (!user?.id) return
     reload()
-  }, [reload])
+  }, [reload, user?.id])
 
   const toggleStep = useCallback(async ({ useCase, position, done }) => {
     const current = dataRef.current

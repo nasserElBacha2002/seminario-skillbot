@@ -4,9 +4,7 @@
 
 Esta branch reemplaza el login de demo (`skillbot-demo` en `localStorage` + perfil Martín compartido) por **Supabase Auth real**.
 
-El frontend autentica con `signInWithPassword` / `signUp`, persiste la sesión JWT y asocia el progreso a `auth.uid()`. Para que eso funcione en un proyecto de Supabase hay que aplicar las migraciones de Auth, confirmar Email Auth (incluido **Allow new users to sign up**) y Site URL.
-
-No hace falta configurar Google en esta fase.
+El frontend autentica con `signInWithPassword` / `signUp` / `signInWithOAuth({ provider: 'google' })`, persiste la sesión JWT y asocia el progreso a `auth.uid()`. Para que eso funcione en un proyecto de Supabase hay que aplicar las migraciones de Auth, confirmar Email Auth (incluido **Allow new users to sign up**), Site URL y, para Google, el provider OAuth en el dashboard.
 
 ## 2. Requisitos
 
@@ -45,6 +43,7 @@ Reiniciar `npm run dev` después de cambiar `.env.local`. Vite lee las variables
 | `supabase/migrations/20261027130000_profile_initials.sql` | Ajusta `profile_initials`: un nombre → una letra (`Luciano` → `L`); dos palabras → dos iniciales (`Martín Rodríguez` → `MR`). |
 | `supabase/migrations/20261027140000_secure_progress_writes.sql` | Post code-review: `profiles` queda SELECT-only para `authenticated`. Tablas de progreso sin escritura amplia. RPCs `SECURITY DEFINER`. `add_xp(p_amount)`. `complete_practice_challenge` sin `p_correct`. |
 | `supabase/migrations/20261027150000_update_profile_name.sql` | Fase 4: RPC `update_profile_name` para `display_name` + `initials`. No otorga `UPDATE` de tabla sobre `profiles`. |
+| `supabase/migrations/20261027160000_harden_update_profile_name.sql` | Post review Fase 4: `update_profile_name` queda con `search_path = ''` y referencias calificadas. |
 
 Las migraciones anteriores siguen siendo necesarias si el proyecto se levanta desde cero. Orden:
 
@@ -58,18 +57,19 @@ Las migraciones anteriores siguen siendo necesarias si el proyecto se levanta de
 8. **`20261027130000_profile_initials.sql`**
 9. **`20261027140000_secure_progress_writes.sql`**
 10. **`20261027150000_update_profile_name.sql`**
-11. `supabase/seed.sql` (catálogo; ya no inserta un perfil demo)
+11. **`20261027160000_harden_update_profile_name.sql`**
+12. `supabase/seed.sql` (catálogo; ya no inserta un perfil demo)
 
 ### Opción A: SQL Editor
 
-Si las migraciones 1–6 ya estaban aplicadas, pegar y ejecutar `20261027120000`, `20261027130000`, `20261027140000` y `20261027150000` en ese orden.
+Si las migraciones 1–6 ya estaban aplicadas, pegar y ejecutar `20261027120000`, `20261027130000`, `20261027140000`, `20261027150000` y `20261027160000` en ese orden.
 
 Después, si el catálogo no está, ejecutar `supabase/seed.sql`.
 
 Si más adelante se usa el CLI, registrar las que se aplicaron a mano:
 
 ```bash
-supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000 20261027150000
+supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000 20261027150000 20261027160000
 ```
 
 ### Opción B: Supabase CLI (proyecto ya linkeado)
@@ -78,7 +78,7 @@ supabase migration repair --status applied 20261006232500 20261012230000 2026102
 supabase db push
 ```
 
-Eso aplica las migraciones pendientes, incluidas `20261027120000`, `20261027130000`, `20261027140000` y `20261027150000`. No incluye el seed; el seed se carga en `db reset` o se pega a mano.
+Eso aplica las migraciones pendientes, incluidas `20261027120000`, `20261027130000`, `20261027140000`, `20261027150000` y `20261027160000`. No incluye el seed; el seed se carga en `db reset` o se pega a mano.
 
 ### Opción C: desarrollo local
 
@@ -116,7 +116,25 @@ Confirmar:
 - Confirmación de email: para este MVP puede quedar **deshabilitada** (en local, `supabase/config.toml` ya tiene `enable_confirmations = false`). No cambiarlo en silencio. Si el remoto exige confirmar el mail, el registro muestra “Revisá tu correo” y no entra hasta confirmar.
 - Política de contraseña: el cliente pide **mínimo 8 caracteres**. En local, `minimum_password_length = 8`. Si el dashboard remoto tiene 6, igual vale el piso de 8 de la app.
 
-Google no se configura en esta fase.
+## 5.1 Google (Fase 5)
+
+Dashboard → **Authentication → Providers → Google**.
+
+Pasos imprescindibles (no hay acceso al dashboard desde este repo):
+
+1. Crear credenciales OAuth en Google Cloud Console (tipo **Web application**).
+2. En el proveedor Google de Supabase: habilitarlo, pegar **Client ID** y **Client Secret**. Esos secretos quedan en el dashboard, no en el frontend ni en `.env.local`.
+3. Callback URL que pide Supabase (Authorized redirect URI en Google Cloud):
+
+   `https://<project-ref>.supabase.co/auth/v1/callback`
+
+   En local con `supabase start`, el callback es el de esa instancia (lo muestra Studio / Auth), no una URL de producción inventada.
+4. En **Authentication → URL Configuration**, Site URL y Redirect URLs de la app tienen que incluir los orígenes reales (`http://localhost:5173` y `http://127.0.0.1:5173` en desarrollo). El cliente usa `redirectTo: window.location.origin`.
+5. Prueba con **usuario nuevo** (cuenta que no exista): Continuar con Google → callback → sesión → app y fila en `public.profiles`.
+6. Prueba con **usuario existente** que ya tenga identidad Google.
+7. Prueba con email/password previo y el mismo email en Google: el resultado depende del dashboard remoto (confirmación de email / linking automático). `enable_manual_linking` sigue en `false`. No se implementó linking manual. Dejar esa combinación como prueba remota.
+
+`handle_new_user` ya toma `display_name` / `full_name` / `name` / email. `profiles` no tiene columna de avatar: se siguen usando initials.
 
 ## 6. Site URL y Redirect URLs
 
@@ -131,7 +149,7 @@ site_url = "http://localhost:5173"
 additional_redirect_urls = ["http://localhost:5173", "http://127.0.0.1:5173"]
 ```
 
-Aplica a `supabase start`. No hace falta OAuth redirect para el login con password, pero las URLs tienen que coincidir con Vite para recovery/OAuth de fases siguientes.
+Aplica a `supabase start`. Login con password, recovery y Google OAuth usan esos orígenes (`redirectTo: window.location.origin`).
 
 ### Proyecto remoto
 
@@ -320,7 +338,7 @@ Migración: `supabase/migrations/20261027140000_secure_progress_writes.sql` (des
 
 ### Permisos de profiles
 
-`authenticated` solo tiene `SELECT` sobre su fila (`id = auth.uid()`). No hay `UPDATE` de tabla. `display_name` e `initials` se cambian con `public.update_profile_name` (`20261027150000`), que recalcula initials en SQL.
+`authenticated` solo tiene `SELECT` sobre su fila (`id = auth.uid()`). No hay `UPDATE` de tabla. `display_name` e `initials` se cambian con `public.update_profile_name` (`20261027150000`, endurecida en `20261027160000` con `search_path = ''`), que recalcula initials en SQL.
 
 `xp` y `level_id` los cambia únicamente `public.add_xp` (la llaman `resolve_use_case` y `complete_practice_challenge`). El trigger `handle_new_user` inserta el perfil inicial.
 
@@ -386,13 +404,15 @@ El reset global está en `supabase/seeds/reset_all_progress_destructive.sql`. No
 - Gate de `App` por sesión, sin `skillbot-demo`.
 - Login controlado, logout con `signOut`.
 - Registro: validación local, `signUp` con `display_name`, switch Login ↔ Crear cuenta.
+- Continuar con Google llama `signInWithOAuth({ provider: 'google', redirectTo: origin })`. La sesión entra por `onAuthStateChange`.
+- Mi cuenta oculta cambiar contraseña si la sesión no tiene identidad `email`.
 - Queries y storage namespaced por uid.
 - Migraciones escritas; no aplicadas al proyecto remoto desde esta branch.
 - `npm run build` del frontend.
 
 ### Pendiente de probar en remoto
 
-- Aplicar `20261027120000_supabase_auth.sql`, `20261027130000_profile_initials.sql`, `20261027140000_secure_progress_writes.sql` y `20261027150000_update_profile_name.sql` en el proyecto de Supabase.
+- Aplicar `20261027120000_supabase_auth.sql`, `20261027130000_profile_initials.sql`, `20261027140000_secure_progress_writes.sql`, `20261027150000_update_profile_name.sql` y `20261027160000_harden_update_profile_name.sql` en el proyecto de Supabase.
 - Habilitar signup por email y alinear la política de contraseña a 8+ caracteres.
 - Registrar un usuario desde la app y comprobar Auth + `profiles`.
 - Crear usuarios A y B (app o dashboard) para aislamiento.
@@ -400,6 +420,10 @@ El reset global está en `supabase/seeds/reset_all_progress_destructive.sql`. No
 - Aislamiento A/B de progreso.
 - Que el trigger cree `profiles` al usar **Add user** del dashboard.
 - Site URL / Redirect URLs del dashboard (el `config.toml` solo afecta a `supabase start`).
+- Habilitar el provider Google, Client ID/Secret y callback real.
+- Callback OAuth: Google → Supabase → SPA → sesión.
+- Creación real de `auth.users` + `public.profiles` con metadata de Google.
+- Account linking de un email/password existente con el mismo email de Google.
 
 ### Local con Docker
 
@@ -427,7 +451,7 @@ Datos afectados al aplicar la migración:
 
 - [ ] Abrí el proyecto correcto de Supabase.
 - [ ] Confirmé URL y anon key.
-- [ ] Apliqué las migraciones nuevas (`20261027120000`, `20261027130000`, `20261027140000`, `20261027150000`).
+- [ ] Apliqué las migraciones nuevas (`20261027120000`, `20261027130000`, `20261027140000`, `20261027150000`, `20261027160000`).
 - [ ] Apliqué la migration correctiva y verifiqué profile read-only / RPC / A vs B (checklist de Correcciones de seguridad).
 - [ ] Verifiqué Email Auth.
 - [ ] Configuré Site URL.
@@ -448,3 +472,8 @@ Datos afectados al aplicar la migración:
 - [ ] Si hay confirmación de email, vi “Revisá tu correo”.
 - [ ] Si no hay confirmación, el registro entra solo a Home.
 - [ ] Logout y login posterior de esa cuenta funcionan.
+- [ ] Habilité Google (Client ID, Client Secret, callback de Supabase).
+- [ ] Site URL / Redirect URLs cubren el origen de la app.
+- [ ] Probé Continuar con Google con usuario nuevo.
+- [ ] Probé Continuar con Google con usuario Google existente.
+- [ ] Probé el mismo email email/password + Google (linking automático del dashboard; no hay linking manual).

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ArrowRight, LoaderCircle } from 'lucide-react'
 import { AuthLayout } from '../components/AuthLayout'
 import { Logo } from '../components/Layout'
-import { useAuth } from '../context/Auth'
+import { isReauthenticationError, useAuth } from '../context/Auth'
 
 const MIN_PASSWORD = 8
 
@@ -10,6 +10,9 @@ function updateMessage(error) {
   const code = String(error?.code ?? '')
   const status = error?.status
   const text = String(error?.message ?? '').toLowerCase()
+  if (isReauthenticationError(error)) {
+    return 'Para cambiar la contraseña tenés que volver a iniciar sesión e intentarlo de nuevo.'
+  }
   if (code === 'same_password' || text.includes('different from the old password') || text.includes('should be different')) {
     return 'La nueva contraseña tiene que ser distinta a la anterior.'
   }

@@ -24,8 +24,11 @@ function buildPrompt(useCase, values) {
   return fillTemplate(useCase.outputTemplate, values, optionalKeys).trim()
 }
 
+// En una repetición los desafíos ya pagados en la base no cuentan: se vuelven a jugar los tres.
 function answeredPositions(useCaseId, serverDone) {
-  return [...new Set([...(loadSession(useCaseId).answered ?? []), ...(serverDone ?? [])])]
+  const session = loadSession(useCaseId)
+  const fromServer = session.repeat ? [] : serverDone ?? []
+  return [...new Set([...(session.answered ?? []), ...fromServer])]
 }
 
 export function UseCasePage({ setPage, useCase, origin, onAsk }) {
@@ -79,13 +82,16 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
     setSaveError(null)
     if (completed) {
       clearSession(useCase.id)
+      saveSession(useCase.id, { repeat: true, stage: 'context' })
       setRound(0)
       setEarned(0)
       setStage('context')
       restartPractice(useCase).catch((error) => setSaveError(error))
       return
     }
-    applyPoint(currentPoint())
+    // El formulario se muestra siempre antes de los pasos, precargado con el borrador.
+    const point = currentPoint()
+    applyPoint(point.stage === 'keys' ? { stage: 'context', round: 0 } : point)
     beginPractice(useCase).catch((error) => setSaveError(error))
   }
 
@@ -123,6 +129,14 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
   }
 
   async function answer(payload) {
+    let xp
+    try {
+      xp = await finishChallenge({ useCase, ...payload })
+    } catch (error) {
+      setAwardError(error)
+      throw error
+    }
+    // Recién con la base confirmada el desafío cuenta como resuelto en este dispositivo.
     if (payload.isCorrect) {
       const answered = [...answeredPositions(useCase.id, data.doneChallenges?.[useCase.id]), payload.position]
       const next = nextChallengeIndex(challenges, answered)
@@ -132,14 +146,8 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
         round: next === -1 ? 0 : next,
       })
     }
-    try {
-      const xp = await finishChallenge({ useCase, ...payload })
-      setEarned((current) => current + xp)
-      return xp
-    } catch (error) {
-      setAwardError(error)
-      throw error
-    }
+    setEarned((current) => current + xp)
+    return xp
   }
 
   const compact = stage !== 'intro'

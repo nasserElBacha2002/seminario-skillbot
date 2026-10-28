@@ -42,7 +42,12 @@ export function HelpPage({ setPage, openCase, askCaseId, clearAsk }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('todas')
   const [openId, setOpenId] = useState(null)
+  // El caso pedido desde "Preguntar" se usa una sola vez; si no, volver a Ayuda reabriría el formulario.
+  const [askedCase] = useState(askCaseId)
   const [composing, setComposing] = useState(Boolean(askCaseId))
+  useEffect(() => {
+    if (askCaseId) clearAsk()
+  }, [askCaseId, clearAsk])
 
   const load = useCallback(() => {
     setError(null)
@@ -56,7 +61,7 @@ export function HelpPage({ setPage, openCase, askCaseId, clearAsk }) {
 
   const caseById = (id) => data.useCases.find((item) => item.id === id)
   const updateTopic = (next) => setTopics((list) => list.map((item) => (item.id === next.id ? { ...item, ...next } : item)))
-  const closeForm = () => { setComposing(false); clearAsk() }
+  const closeForm = () => setComposing(false)
   const open = topics?.find((item) => item.id === openId)
 
   if (open) {
@@ -106,7 +111,7 @@ export function HelpPage({ setPage, openCase, askCaseId, clearAsk }) {
         {tab === 'comunidad' && composing && (
           <TopicForm
             useCases={data.useCases}
-            initialCaseId={askCaseId}
+            initialCaseId={askedCase}
             onCancel={closeForm}
             onCreated={(topic) => {
               setTopics((list) => [topic, ...(list ?? [])])

@@ -1,6 +1,7 @@
 import { fallbackCategories, guidedCases, guidedTools, toolUrls } from '../data/guidedCases.js'
 import { practiceChallenges, practiceFieldKeys, practiceKeys } from '../data/practiceChallenges.js'
 import { isLegacySchemaError } from './schemaError.js'
+import { myTopicIds, rememberMyTopic } from './storage'
 import { DEMO_PROFILE_ID, supabase } from './supabase'
 
 // Fecha local en formato YYYY-MM-DD. No se usa toISOString porque convierte a
@@ -179,7 +180,11 @@ async function fetchDoneChallenges() {
     .from('practice_rewards')
     .select('use_case_id, position')
     .eq('profile_id', DEMO_PROFILE_ID)
-  if (error) return {}
+  if (error) {
+    // Sin la migración de desafíos la tabla no existe y no hay nada resuelto todavía.
+    if (error.code === 'PGRST205' || error.code === '42P01') return {}
+    throw error
+  }
   const doneChallenges = {}
   for (const row of data ?? []) {
     if (row.position >= 1 && row.position <= 3) (doneChallenges[row.use_case_id] ??= []).push(row.position)
@@ -321,13 +326,9 @@ export function unlockAchievement(achievementId) {
 // Centro de ayuda. El nombre del autor lo completa un trigger con el del perfil.
 const HELP_TOPIC_COLUMNS = 'id, profile_id, author_name, author_initials, title, body, use_case_id, solved_reply_id, created_at, last_activity_at'
 
-function toTopic(row) {
+function toTopic(row, mine = myTopicIds()) {
   const { replies, ...topic } = row
-  return { ...topic, replyCount: replies?.[0]?.count ?? 0, mine: row.profile_id === DEMO_PROFILE_ID }
-}
-
-function toReply(row) {
-  return { ...row, mine: row.profile_id === DEMO_PROFILE_ID }
+  return { ...topic, replyCount: replies?.[0]?.count ?? 0, mine: mine.has(row.id) }
 }
 
 export async function fetchHelpTopics() {
@@ -337,17 +338,17 @@ export async function fetchHelpTopics() {
     .select(`${HELP_TOPIC_COLUMNS}, replies:help_replies!help_replies_topic_id_fkey(count)`)
     .order('last_activity_at', { ascending: false })
     .then(unwrap)
-  return rows.map(toTopic)
+  const mine = myTopicIds()
+  return rows.map((row) => toTopic(row, mine))
 }
 
-export async function fetchHelpReplies(topicId) {
-  const rows = await supabase
+export function fetchHelpReplies(topicId) {
+  return supabase
     .from('help_replies')
     .select('id, topic_id, profile_id, author_name, author_initials, body, created_at')
     .eq('topic_id', topicId)
     .order('created_at')
     .then(unwrap)
-  return rows.map(toReply)
 }
 
 export async function createHelpTopic({ title, body, useCaseId }) {
@@ -357,17 +358,17 @@ export async function createHelpTopic({ title, body, useCaseId }) {
     .select(HELP_TOPIC_COLUMNS)
     .single()
     .then(unwrap)
+  rememberMyTopic(row.id)
   return toTopic(row)
 }
 
-export async function createHelpReply(topicId, body) {
-  const row = await supabase
+export function createHelpReply(topicId, body) {
+  return supabase
     .from('help_replies')
     .insert({ topic_id: topicId, profile_id: DEMO_PROFILE_ID, body: body.trim() })
     .select('id, topic_id, profile_id, author_name, author_initials, body, created_at')
     .single()
     .then(unwrap)
-  return toReply(row)
 }
 
 export function markHelpSolution(topicId, replyId) {

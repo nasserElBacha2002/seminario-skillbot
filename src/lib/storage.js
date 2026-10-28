@@ -2,6 +2,7 @@ const draftKey = (id) => `skillbot:draft:${id}`
 const resultKey = (id) => `skillbot:result:${id}`
 const sessionKey = (id) => `skillbot:session:${id}`
 const RECENT_KEY = 'skillbot:recent'
+const MY_TOPICS_KEY = 'skillbot:my-topics'
 
 function read(key) {
   try {
@@ -82,4 +83,14 @@ export function recentCaseId() {
   } catch {
     return null
   }
+}
+
+// Todos escriben como el perfil demo, así que "mío" es lo que se publicó desde este navegador.
+export function myTopicIds() {
+  const ids = read(MY_TOPICS_KEY)
+  return new Set(Array.isArray(ids) ? ids : [])
+}
+
+export function rememberMyTopic(topicId) {
+  return write(MY_TOPICS_KEY, JSON.stringify([...myTopicIds(), topicId]))
 }

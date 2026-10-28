@@ -33,10 +33,12 @@ export function PracticeRound({ challenge, index, total, hasPendingOther, onAnsw
         })
       }
     } catch (error) {
+      // Sin guardar no cuenta como resuelto: se queda en la pregunta para reintentar.
       setSaveError(error)
-    } finally {
       setSaving(false)
+      return
     }
+    setSaving(false)
     const feedback = option.feedback || (option.is_correct ? challenge.feedbackCorrect : challenge.feedbackIncorrect)
     setResult({ correct: option.is_correct, feedback, xp })
   }
@@ -83,7 +85,7 @@ export function PracticeRound({ challenge, index, total, hasPendingOther, onAnsw
           </div>
           {saveError && (
             <p className="save-error" role="alert">
-              No se pudo guardar el XP de este desafío: {saveError.message}
+              Tu respuesta es correcta, pero no se pudo guardar: {saveError.message}. Probá de nuevo.
               {/complete_practice_challenge|PGRST202/i.test(String(saveError.message ?? '')) && ' Falta aplicar la migración 20261021010000_practice_challenges.sql.'}
             </p>
           )}

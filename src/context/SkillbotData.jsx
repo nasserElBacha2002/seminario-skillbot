@@ -108,8 +108,9 @@ export function SkillbotDataProvider({ children }) {
 
     const writes = [markActivityToday()]
     if (current.progress[useCase.id]?.status !== 'completed') {
-      const value = Math.round((previous.size / useCase.steps.length) * STEPS_PROGRESS_CAP)
-      writes.push(saveUseCaseProgress(useCase.id, value))
+      const fromSteps = Math.round((previous.size / useCase.steps.length) * STEPS_PROGRESS_CAP)
+      const fromChallenges = Math.round(((current.doneChallenges?.[useCase.id] ?? []).length * 100) / 3)
+      writes.push(saveUseCaseProgress(useCase.id, Math.max(fromSteps, fromChallenges)))
     }
     await Promise.all(writes)
     setData(await loadWithAchievements())
@@ -124,9 +125,9 @@ export function SkillbotDataProvider({ children }) {
     setData(await loadWithAchievements())
   }, [])
 
+  // Repetir es practicar de nuevo: no toca el progreso, así el caso sigue completado.
   const restartPractice = useCallback(async (useCase) => {
     await clearCaseSteps(useCase.id)
-    await saveUseCaseProgress(useCase.id, 10)
     await markActivityToday()
     setData(await loadWithAchievements())
   }, [])

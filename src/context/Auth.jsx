@@ -4,87 +4,6 @@ import { setStorageOwner } from '../lib/storage'
 
 const AuthContext = createContext(null)
 
-const OAUTH_ERROR_KEYS = ['error', 'error_code', 'error_description', 'error_uri']
-
-function readSearchAndHash() {
-  const url = new URL(window.location.href)
-  return {
-    url,
-    search: url.searchParams,
-    hash: new URLSearchParams(url.hash.replace(/^#/, '')),
-  }
-}
-
-function oauthCallbackMessage() {
-  const { search, hash } = readSearchAndHash()
-  const error = search.get('error') || hash.get('error')
-  if (!error) return ''
-  const code = String(search.get('error_code') || hash.get('error_code') || error).toLowerCase()
-  if (code.includes('access_denied')) return 'Cancelaste el acceso con Google.'
-  return 'No pudimos completar el acceso con Google. Intentá nuevamente.'
-}
-
-function authCallbackStillNeeded(search, hash) {
-  const type = search.get('type') || hash.get('type')
-  return Boolean(
-    search.get('code')
-    || hash.get('code')
-    || search.get('access_token')
-    || hash.get('access_token')
-    || search.get('refresh_token')
-    || hash.get('refresh_token')
-    || search.get('token_hash')
-    || hash.get('token_hash')
-    || type === 'recovery'
-    || type === 'signup'
-    || type === 'magiclink'
-  )
-}
-
-function clearConsumedOAuthErrorParams() {
-  const { url, search, hash } = readSearchAndHash()
-  if (!(search.get('error') || hash.get('error'))) return
-  if (authCallbackStillNeeded(search, hash)) return
-
-  let changed = false
-  for (const key of OAUTH_ERROR_KEYS) {
-    if (search.has(key)) {
-      search.delete(key)
-      changed = true
-    }
-    if (hash.has(key)) {
-      hash.delete(key)
-      changed = true
-    }
-  }
-  if (!changed) return
-
-  const nextSearch = search.toString()
-  const nextHash = hash.toString()
-  const next = `${url.pathname}${nextSearch ? `?${nextSearch}` : ''}${nextHash ? `#${nextHash}` : ''}`
-  window.history.replaceState(window.history.state, '', next)
-}
-
-function isOAuthCallbackFailure(error) {
-  const name = String(error?.name ?? '')
-  const code = String(error?.code ?? '').toLowerCase()
-  return name === 'AuthImplicitGrantRedirectError' || code.includes('access_denied')
-}
-
-export function canChangePassword(user) {
-  const identities = Array.isArray(user?.identities) ? user.identities : []
-  if (identities.length > 0) {
-    return identities.some((item) => String(item.provider).toLowerCase() === 'email')
-  }
-  const providers = user?.app_metadata?.providers
-  if (Array.isArray(providers) && providers.length > 0) {
-    return providers.map((item) => String(item).toLowerCase()).includes('email')
-  }
-  const provider = String(user?.app_metadata?.provider ?? '').toLowerCase()
-  if (provider) return provider === 'email'
-  return true
-}
-
 export function isReauthenticationError(error) {
   const code = String(error?.code ?? '').toLowerCase()
   const text = String(error?.message ?? '').toLowerCase()
@@ -104,13 +23,10 @@ export function AuthProvider({ children }) {
   const [passwordRecovery, setPasswordRecovery] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [authNotice, setAuthNotice] = useState('')
 
   useEffect(() => {
     let cancelled = false
     let leaveBoot
-    const notice = oauthCallbackMessage()
-    if (notice) setAuthNotice(notice)
 
     supabase.auth.getSession()
       .then(({ data, error: sessionError }) => {
@@ -118,12 +34,7 @@ export function AuthProvider({ children }) {
         if (sessionError) {
           setSession(null)
           setStorageOwner(null)
-          if (isOAuthCallbackFailure(sessionError)) {
-            setError(null)
-            setAuthNotice((current) => current || 'No pudimos completar el acceso con Google. Intentá nuevamente.')
-          } else {
-            setError(sessionError)
-          }
+          setError(sessionError)
           setLoading(false)
           return
         }
@@ -135,24 +46,14 @@ export function AuthProvider({ children }) {
         if (cancelled) return
         setSession(null)
         setStorageOwner(null)
-        if (isOAuthCallbackFailure(sessionError)) {
-          setError(null)
-          setAuthNotice((current) => current || 'No pudimos completar el acceso con Google. Intentá nuevamente.')
-        } else {
-          setError(sessionError)
-        }
+        setError(sessionError)
         setLoading(false)
-      })
-      .finally(() => {
-        if (cancelled || !notice) return
-        clearConsumedOAuthErrorParams()
       })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (cancelled) return
       if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true)
       if (event === 'SIGNED_OUT') setPasswordRecovery(false)
-      if (event === 'SIGNED_IN') setAuthNotice('')
       setSession(nextSession)
       setStorageOwner(nextSession?.user?.id ?? null)
       setError(null)
@@ -215,23 +116,8 @@ export function AuthProvider({ children }) {
     return data
   }, [])
 
-  const signInWithGoogle = useCallback(async () => {
-    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
-    })
-    if (oauthError) throw oauthError
-    return data
-  }, [])
-
   const completePasswordRecovery = useCallback(() => {
     setPasswordRecovery(false)
-  }, [])
-
-  const clearAuthNotice = useCallback(() => {
-    setAuthNotice('')
   }, [])
 
   const reload = useCallback(async () => {
@@ -263,18 +149,15 @@ export function AuthProvider({ children }) {
       passwordRecovery,
       loading,
       error,
-      authNotice,
-      clearAuthNotice,
       signIn,
       signUp,
-      signInWithGoogle,
       signOut,
       resetPasswordForEmail,
       updatePassword,
       completePasswordRecovery,
       reload,
     }),
-    [session, passwordRecovery, loading, error, authNotice, clearAuthNotice, signIn, signUp, signInWithGoogle, signOut, resetPasswordForEmail, updatePassword, completePasswordRecovery, reload],
+    [session, passwordRecovery, loading, error, signIn, signUp, signOut, resetPasswordForEmail, updatePassword, completePasswordRecovery, reload],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

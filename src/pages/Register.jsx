@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ArrowRight, LoaderCircle } from 'lucide-react'
 import { AuthLayout } from '../components/AuthLayout'
-import { GoogleButton } from '../components/GoogleButton'
 import { Logo } from '../components/Layout'
 import { useAuth } from '../context/Auth'
 
@@ -42,12 +41,11 @@ function validate({ name, email, password, confirmPassword }) {
 }
 
 export function Register({ email, onEmailChange, onLogin }) {
-  const { signUp, authNotice, clearAuthNotice } = useAuth()
+  const { signUp } = useAuth()
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
-  const displayError = error || authNotice
   const [submitting, setSubmitting] = useState(false)
   const [needsConfirm, setNeedsConfirm] = useState(false)
 
@@ -61,7 +59,6 @@ export function Register({ email, onEmailChange, onLogin }) {
 
   async function handleSubmit(event) {
     event.preventDefault()
-    clearAuthNotice()
     const nextName = name.trim()
     const nextEmail = email.trim()
     const localError = validate({
@@ -174,14 +171,12 @@ export function Register({ email, onEmailChange, onLogin }) {
               aria-invalid={Boolean(error)}
             />
           </label>
-          {displayError && <p className="login-error" role="alert">{displayError}</p>}
+          {error && <p className="login-error" role="alert">{error}</p>}
           <button type="submit" className="primary login-button" disabled={submitting} aria-busy={submitting}>
             {submitting ? <LoaderCircle size={18} className="spin" /> : null}
             {submitting ? 'Creando cuenta…' : 'Crear cuenta'}
             {submitting ? null : <ArrowRight size={18} />}
           </button>
-          <div className="login-divider" role="separator">o</div>
-          <GoogleButton disabled={submitting} onError={setError} />
           <p className="login-switch">
             ¿Ya tenés cuenta?{' '}
             <button type="button" onClick={goToLogin}>Iniciar sesión</button>

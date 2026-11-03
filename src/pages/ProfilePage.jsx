@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChevronRight, KeyRound, LoaderCircle, LogOut, Mail, Pencil } from 'lucide-react'
 import { Layout } from '../components/Layout'
-import { canChangePassword, isReauthenticationError, useAuth } from '../context/Auth'
+import { isReauthenticationError, useAuth } from '../context/Auth'
 import { useSkillbotData } from '../context/SkillbotData'
 
 const MIN_PASSWORD = 8
@@ -160,8 +160,6 @@ export function ProfilePage({ setPage }) {
   const [panel, setPanel] = useState('menu')
   const [error, setError] = useState('')
   const [leaving, setLeaving] = useState(false)
-  const allowPasswordChange = canChangePassword(user)
-  const activePanel = panel === 'password' && !allowPasswordChange ? 'menu' : panel
 
   async function handleLogout() {
     setError('')
@@ -194,12 +192,12 @@ export function ProfilePage({ setPage }) {
             <div className="interest-list">{data.profile.interests.map((item) => <span key={item}>{item}</span>)}</div>
           </article>
           <article className="settings-list">
-            {activePanel === 'name' ? (
+            {panel === 'name' ? (
               <>
                 <p className="eyebrow">EDITAR NOMBRE</p>
                 <NameForm currentName={data.profile.name} onCancel={() => setPanel('menu')} onSaved={() => setPanel('menu')} />
               </>
-            ) : activePanel === 'password' ? (
+            ) : panel === 'password' ? (
               <>
                 <p className="eyebrow">CAMBIAR CONTRASEÑA</p>
                 <PasswordForm onCancel={() => setPanel('menu')} />
@@ -222,16 +220,14 @@ export function ProfilePage({ setPage }) {
                   </div>
                   <ChevronRight size={18} />
                 </button>
-                {allowPasswordChange ? (
-                  <button type="button" onClick={() => setPanel('password')}>
-                    <span><KeyRound size={18} /></span>
-                    <div>
-                      <b>Cambiar contraseña</b>
-                      <small>Actualizá el acceso de esta cuenta</small>
-                    </div>
-                    <ChevronRight size={18} />
-                  </button>
-                ) : null}
+                <button type="button" onClick={() => setPanel('password')}>
+                  <span><KeyRound size={18} /></span>
+                  <div>
+                    <b>Cambiar contraseña</b>
+                    <small>Actualizá el acceso de esta cuenta</small>
+                  </div>
+                  <ChevronRight size={18} />
+                </button>
                 <button type="button" className="logout" onClick={handleLogout} disabled={leaving}>
                   <span><LogOut size={18} /></span>
                   <div>

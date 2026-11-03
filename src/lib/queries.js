@@ -1,8 +1,14 @@
 import { fallbackCategories, guidedCases, guidedTools, toolUrls } from '../data/guidedCases.js'
 import { practiceChallenges, practiceFieldKeys, practiceKeys } from '../data/practiceChallenges.js'
 import { isLegacySchemaError } from './schemaError.js'
-import { myTopicIds, rememberMyTopic } from './storage'
-import { DEMO_PROFILE_ID, supabase } from './supabase'
+import { supabase } from './supabase'
+
+async function currentUserId() {
+  const { data: { session } } = await supabase.auth.getSession()
+  const userId = session?.user?.id
+  if (!userId) throw new Error('Tenés que iniciar sesión para continuar.')
+  return userId
+}
 
 // Fecha local en formato YYYY-MM-DD. No se usa toISOString porque convierte a
 // UTC y correria el dia para zonas con offset negativo.
@@ -175,14 +181,13 @@ function toUseCase(row) {
   }
 }
 
-async function fetchDoneChallenges() {
+async function fetchDoneChallenges(userId) {
   const { data, error } = await supabase
     .from('practice_rewards')
     .select('use_case_id, position')
-    .eq('profile_id', DEMO_PROFILE_ID)
+    .eq('profile_id', userId)
   if (error) {
-    // Sin la migración de desafíos la tabla no existe y no hay nada resuelto todavía.
-    if (error.code === 'PGRST205' || error.code === '42P01') return {}
+    if (isLegacySchemaError(error) || error.code === 'PGRST205' || error.code === '42P01') return {}
     throw error
   }
   const doneChallenges = {}
@@ -193,19 +198,33 @@ async function fetchDoneChallenges() {
 }
 
 export async function fetchSkillbotData() {
+  const userId = await currentUserId()
+  const profileQuery = supabase
+    .from('profiles')
+    .select('id, display_name, initials, goal, interests, xp, level_id')
+    .eq('id', userId)
+    .maybeSingle()
+    .then(({ data, error }) => {
+      if (error) throw error
+      if (!data) {
+        throw new Error('No encontramos tu perfil. Si acabás de crear la cuenta, recargá la página. Si el error sigue, falta aplicar la migración de autenticación.')
+      }
+      return data
+    })
+
   const [catalogRows, categories, profile, levels, skills, userSkills, achievements, unlocked, progress, stepProgress, activity, doneChallenges] = await Promise.all([
     fetchUseCaseRows(),
     supabase.from('categories').select('id, name').order('sort_order').then(unwrap),
-    supabase.from('profiles').select('id, display_name, initials, goal, interests, xp, level_id').eq('id', DEMO_PROFILE_ID).single().then(unwrap),
+    profileQuery,
     supabase.from('levels').select('id, name, min_xp, next_xp, sort_order').order('sort_order').then(unwrap),
     supabase.from('skills').select('id, name, color, sort_order').order('sort_order').then(unwrap),
-    supabase.from('user_skills').select('skill_id, value').eq('profile_id', DEMO_PROFILE_ID).then(unwrap),
+    supabase.from('user_skills').select('skill_id, value').eq('profile_id', userId).then(unwrap),
     supabase.from('achievements').select('id, title, description, icon, sort_order').order('sort_order').then(unwrap),
-    supabase.from('user_achievements').select('achievement_id').eq('profile_id', DEMO_PROFILE_ID).then(unwrap),
-    supabase.from('use_case_progress').select('use_case_slug, progress, status, completed_at, updated_at').eq('profile_id', DEMO_PROFILE_ID).then(unwrap),
-    supabase.from('use_case_step_progress').select('use_case_id, position').eq('profile_id', DEMO_PROFILE_ID).then(unwrap),
-    supabase.from('activity_days').select('day').eq('profile_id', DEMO_PROFILE_ID).then(unwrap),
-    fetchDoneChallenges(),
+    supabase.from('user_achievements').select('achievement_id').eq('profile_id', userId).then(unwrap),
+    supabase.from('use_case_progress').select('use_case_slug, progress, status, completed_at, updated_at').eq('profile_id', userId).then(unwrap),
+    supabase.from('use_case_step_progress').select('use_case_id, position').eq('profile_id', userId).then(unwrap),
+    supabase.from('activity_days').select('day').eq('profile_id', userId).then(unwrap),
+    fetchDoneChallenges(userId),
   ])
 
   const valueBySkill = new Map(userSkills.map((x) => [x.skill_id, x.value]))
@@ -223,9 +242,7 @@ export async function fetchSkillbotData() {
     profile: {
       name: profile.display_name,
       initials: profile.initials,
-      goal: profile.goal === 'Aprender a elegir y utilizar herramientas de IA para resolver tareas cotidianas.'
-        ? 'Resolver tareas concretas usando IA, sin tener que saber de antemano qué herramienta elegir.'
-        : profile.goal,
+      goal: profile.goal || 'Resolver tareas concretas usando IA, sin tener que saber de antemano qué herramienta elegir.',
       interests: profile.interests ?? [],
       xp: profile.xp,
     },
@@ -237,47 +254,53 @@ export async function fetchSkillbotData() {
   }
 }
 
+export function updateProfileName(displayName) {
+  return supabase.rpc('update_profile_name', { p_display_name: displayName }).then(unwrap)
+}
+
 export function resolveUseCase(useCaseId, day) {
   return supabase.rpc('resolve_use_case', { p_use_case_id: useCaseId, p_day: day }).then(unwrap)
 }
 
-export function completePracticeChallenge({ useCaseId, position, selected, correct, day }) {
+export function completePracticeChallenge({ useCaseId, position, selected, day }) {
   return supabase.rpc('complete_practice_challenge', {
     p_use_case_id: useCaseId,
     p_position: position,
     p_selected: selected,
-    p_correct: correct,
     p_day: day,
   }).then(unwrap)
 }
 
-export function clearCaseSteps(useCaseId) {
+export async function clearCaseSteps(useCaseId) {
+  const userId = await currentUserId()
   return supabase
     .from('use_case_step_progress')
     .delete()
-    .eq('profile_id', DEMO_PROFILE_ID)
+    .eq('profile_id', userId)
     .eq('use_case_id', useCaseId)
     .then(unwrap)
 }
 
-export function setStepDone(useCaseId, position, done) {
+export async function setStepDone(useCaseId, position, done) {
+  const userId = await currentUserId()
   const table = supabase.from('use_case_step_progress')
   const request = done
     ? table.upsert(
-        { profile_id: DEMO_PROFILE_ID, use_case_id: useCaseId, position },
+        { profile_id: userId, use_case_id: useCaseId, position },
         { onConflict: 'profile_id,use_case_id,position', ignoreDuplicates: true },
       )
-    : table.delete().eq('profile_id', DEMO_PROFILE_ID).eq('use_case_id', useCaseId).eq('position', position)
+    : table.delete().eq('profile_id', userId).eq('use_case_id', useCaseId).eq('position', position)
   return request.then(unwrap)
 }
 
-export function saveUseCaseProgress(useCaseSlug, progress) {
+export async function saveUseCaseProgress(useCaseSlug, progress) {
+  const userId = await currentUserId()
   const completed = progress >= 100
   return supabase
     .from('use_case_progress')
     .upsert(
       {
-        profile_id: DEMO_PROFILE_ID,
+        profile_id: userId,
         use_case_slug: useCaseSlug,
         progress,
         status: completed ? 'completed' : 'in_progress',
@@ -291,11 +314,12 @@ export function saveUseCaseProgress(useCaseSlug, progress) {
     .then(unwrap)
 }
 
-export function recordChallengeAttempt({ useCaseSlug, selectedOption, isCorrect, xpEarned }) {
+export async function recordChallengeAttempt({ useCaseSlug, selectedOption, isCorrect, xpEarned }) {
+  const userId = await currentUserId()
   return supabase
     .from('challenge_attempts')
     .insert({
-      profile_id: DEMO_PROFILE_ID,
+      profile_id: userId,
       use_case_slug: useCaseSlug,
       selected_option: selectedOption,
       is_correct: isCorrect,
@@ -306,18 +330,20 @@ export function recordChallengeAttempt({ useCaseSlug, selectedOption, isCorrect,
     .then(unwrap)
 }
 
-export function markActivityToday() {
+export async function markActivityToday() {
+  const userId = await currentUserId()
   return supabase
     .from('activity_days')
-    .upsert({ profile_id: DEMO_PROFILE_ID, day: toDayString(new Date()) }, { onConflict: 'profile_id,day' })
+    .upsert({ profile_id: userId, day: toDayString(new Date()) }, { onConflict: 'profile_id,day' })
     .then(unwrap)
 }
 
-export function unlockAchievement(achievementId) {
+export async function unlockAchievement(achievementId) {
+  const userId = await currentUserId()
   return supabase
     .from('user_achievements')
     .upsert(
-      { profile_id: DEMO_PROFILE_ID, achievement_id: achievementId },
+      { profile_id: userId, achievement_id: achievementId },
       { onConflict: 'profile_id,achievement_id', ignoreDuplicates: true },
     )
     .then(unwrap)
@@ -326,20 +352,20 @@ export function unlockAchievement(achievementId) {
 // Centro de ayuda. El nombre del autor lo completa un trigger con el del perfil.
 const HELP_TOPIC_COLUMNS = 'id, profile_id, author_name, author_initials, title, body, use_case_id, solved_reply_id, created_at, last_activity_at'
 
-function toTopic(row, mine = myTopicIds()) {
+function toTopic(row, userId) {
   const { replies, ...topic } = row
-  return { ...topic, replyCount: replies?.[0]?.count ?? 0, mine: mine.has(row.id) }
+  return { ...topic, replyCount: replies?.[0]?.count ?? 0, mine: row.profile_id === userId }
 }
 
 export async function fetchHelpTopics() {
+  const userId = await currentUserId()
   const rows = await supabase
     .from('help_topics')
     // Hay dos FK entre las tablas (topic_id y solved_reply_id); se aclara cuál usar.
     .select(`${HELP_TOPIC_COLUMNS}, replies:help_replies!help_replies_topic_id_fkey(count)`)
     .order('last_activity_at', { ascending: false })
     .then(unwrap)
-  const mine = myTopicIds()
-  return rows.map((row) => toTopic(row, mine))
+  return rows.map((row) => toTopic(row, userId))
 }
 
 export function fetchHelpReplies(topicId) {
@@ -352,20 +378,21 @@ export function fetchHelpReplies(topicId) {
 }
 
 export async function createHelpTopic({ title, body, useCaseId }) {
+  const userId = await currentUserId()
   const row = await supabase
     .from('help_topics')
-    .insert({ profile_id: DEMO_PROFILE_ID, title: title.trim(), body: body.trim(), use_case_id: useCaseId || null })
+    .insert({ profile_id: userId, title: title.trim(), body: body.trim(), use_case_id: useCaseId || null })
     .select(HELP_TOPIC_COLUMNS)
     .single()
     .then(unwrap)
-  rememberMyTopic(row.id)
-  return toTopic(row)
+  return toTopic(row, userId)
 }
 
-export function createHelpReply(topicId, body) {
+export async function createHelpReply(topicId, body) {
+  const userId = await currentUserId()
   return supabase
     .from('help_replies')
-    .insert({ topic_id: topicId, profile_id: DEMO_PROFILE_ID, body: body.trim() })
+    .insert({ topic_id: topicId, profile_id: userId, body: body.trim() })
     .select('id, topic_id, profile_id, author_name, author_initials, body, created_at')
     .single()
     .then(unwrap)

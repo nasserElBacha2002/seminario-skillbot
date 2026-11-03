@@ -1,9 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useAuth } from './Auth'
 import {
   clearCaseSteps,
   completePracticeChallenge,
   fetchSkillbotData,
   markActivityToday,
+  updateProfileName,
   saveUseCaseProgress,
   setStepDone,
   toDayString,
@@ -80,23 +82,28 @@ async function loadWithAchievements() {
 }
 
 export function SkillbotDataProvider({ children }) {
+  const { user } = useAuth()
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const dataRef = useRef(null)
   dataRef.current = data
 
   const reload = useCallback(async () => {
+    if (!user?.id) return
     try {
       setError(null)
       setData(derive(await fetchSkillbotData()))
     } catch (e) {
       setError(e)
     }
-  }, [])
+  }, [user?.id])
 
   useEffect(() => {
+    setData(null)
+    setError(null)
+    if (!user?.id) return
     reload()
-  }, [reload])
+  }, [reload, user?.id])
 
   const toggleStep = useCallback(async ({ useCase, position, done }) => {
     const current = dataRef.current
@@ -132,23 +139,36 @@ export function SkillbotDataProvider({ children }) {
     setData(await loadWithAchievements())
   }, [])
 
-  // El XP lo decide la base, una vez por desafío. Copiar o abrir una IA no pasa por acá.
-  const finishChallenge = useCallback(async ({ useCase, position, selectedOption, isCorrect }) => {
-    if (!isCorrect) return 0
+  // El XP lo decide la base leyendo challenge_options.is_correct. Copiar o abrir una IA no pasa por acá.
+  const finishChallenge = useCallback(async ({ useCase, position, selectedOption }) => {
     const awarded = await completePracticeChallenge({
       useCaseId: useCase.id,
       position,
       selected: selectedOption,
-      correct: true,
       day: toDayString(new Date()),
     })
     setData(await loadWithAchievements())
     return Number(awarded) || 0
   }, [])
 
+  const saveDisplayName = useCallback(async (displayName) => {
+    const row = await updateProfileName(displayName)
+    const current = dataRef.current
+    if (!current) return row
+    setData({
+      ...current,
+      profile: {
+        ...current.profile,
+        name: row.display_name,
+        initials: row.initials,
+      },
+    })
+    return row
+  }, [])
+
   const value = useMemo(
-    () => ({ data, loading: !data && !error, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge }),
-    [data, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge],
+    () => ({ data, loading: !data && !error, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName }),
+    [data, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName],
   )
 
   return <SkillbotDataContext.Provider value={value}>{children}</SkillbotDataContext.Provider>

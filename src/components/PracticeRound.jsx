@@ -24,14 +24,11 @@ export function PracticeRound({ challenge, index, total, hasPendingOther, onAnsw
     setSaveError(null)
     let xp = 0
     try {
-      // Solo se cobra XP si acertó. Un error no tiene que guardar premio.
-      if (option.is_correct) {
-        xp = await onAnswer({
-          position: challenge.position,
-          selectedOption: option.letter,
-          isCorrect: true,
-        })
-      }
+      xp = await onAnswer({
+        position: challenge.position,
+        selectedOption: option.letter,
+        isCorrect: option.is_correct,
+      })
     } catch (error) {
       // Sin guardar no cuenta como resuelto: se queda en la pregunta para reintentar.
       setSaveError(error)
@@ -85,8 +82,8 @@ export function PracticeRound({ challenge, index, total, hasPendingOther, onAnsw
           </div>
           {saveError && (
             <p className="save-error" role="alert">
-              Tu respuesta es correcta, pero no se pudo guardar: {saveError.message}. Probá de nuevo.
-              {/complete_practice_challenge|PGRST202/i.test(String(saveError.message ?? '')) && ' Falta aplicar la migración 20261021010000_practice_challenges.sql.'}
+              No se pudo guardar el XP de este desafío: {saveError.message}
+              {/complete_practice_challenge|PGRST202/i.test(String(saveError.message ?? '')) && ' Falta aplicar la migración 20261027140000_secure_progress_writes.sql.'}
             </p>
           )}
           <button type="button" className="primary confirm" disabled={!selected || saving} onClick={confirm}>

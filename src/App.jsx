@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { AuthProvider, useAuth } from './context/Auth'
 import { SkillbotDataProvider, useSkillbotData } from './context/SkillbotData'
 import { Boot, BootError } from './components/Boot'
-import { rememberCase } from './lib/storage'
+import { OnboardingWizard } from './components/OnboardingWizard'
+import { canPostponeOnboarding } from './lib/onboarding'
+import { loadOnboardingLater, rememberCase, saveOnboardingLater } from './lib/storage'
 import { ExplorePage } from './pages/ExplorePage'
 import { HelpPage } from './pages/HelpPage'
 import { HomePage } from './pages/HomePage'
@@ -50,6 +52,42 @@ function Shell() {
   return <ProfilePage setPage={setPage} />
 }
 
+function Entry() {
+  const { user } = useAuth()
+  const { data, loading, error, reload, saveOnboarding } = useSkillbotData()
+  const [later, setLater] = useState(() => loadOnboardingLater(user?.id))
+
+  useEffect(() => {
+    setLater(loadOnboardingLater(user?.id))
+  }, [user?.id])
+
+  if (loading || !data) return <Boot />
+  if (error) return <BootError error={error} onRetry={reload} />
+  if (data.onboarding?.completedAt || later) return <Shell />
+
+  const allowLater = canPostponeOnboarding({
+    profile: data.profile,
+    progress: data.progress,
+    activityDays: data.activityDays,
+    achievements: data.achievements,
+  })
+
+  return (
+    <OnboardingWizard
+      key={user?.id}
+      mode="start"
+      options={data.onboarding?.options}
+      serverAnswers={data.onboarding?.answers}
+      allowLater={allowLater}
+      onSubmit={saveOnboarding}
+      onLater={() => {
+        saveOnboardingLater(user?.id)
+        setLater(true)
+      }}
+    />
+  )
+}
+
 function Gate() {
   const { session, passwordRecovery, loading, error, reload } = useAuth()
   if (loading) return <Boot />
@@ -57,7 +95,7 @@ function Gate() {
   if (passwordRecovery || !session) return <AuthFlow />
   return (
     <SkillbotDataProvider>
-      <Shell />
+      <Entry />
     </SkillbotDataProvider>
   )
 }

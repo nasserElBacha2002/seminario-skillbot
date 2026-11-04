@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useAuth } from './Auth'
 import {
   clearCaseSteps,
+  completeOnboarding,
   completePracticeChallenge,
   fetchSkillbotData,
   markActivityToday,
@@ -11,6 +12,7 @@ import {
   toDayString,
   unlockAchievement,
 } from '../lib/queries'
+import { clearOnboardingDraft } from '../lib/storage'
 
 const WEEK_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
@@ -151,6 +153,22 @@ export function SkillbotDataProvider({ children }) {
     return Number(awarded) || 0
   }, [])
 
+  const saveOnboarding = useCallback(async (answers) => {
+    const current = dataRef.current
+    const saved = await completeOnboarding(answers, current?.onboarding?.completedAt ?? null)
+    clearOnboardingDraft()
+    if (!current) return saved
+    setData({
+      ...current,
+      onboarding: {
+        ...current.onboarding,
+        completedAt: saved.completedAt,
+        answers: saved.answers,
+      },
+    })
+    return saved
+  }, [])
+
   const saveDisplayName = useCallback(async (displayName) => {
     const row = await updateProfileName(displayName)
     const current = dataRef.current
@@ -167,8 +185,8 @@ export function SkillbotDataProvider({ children }) {
   }, [])
 
   const value = useMemo(
-    () => ({ data, loading: !data && !error, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName }),
-    [data, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName],
+    () => ({ data, loading: !data && !error, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName, saveOnboarding }),
+    [data, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName, saveOnboarding],
   )
 
   return <SkillbotDataContext.Provider value={value}>{children}</SkillbotDataContext.Provider>

@@ -160,7 +160,7 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
         <div className={`case-heading${compact ? ' case-heading-compact' : ''}${hideTitle ? ' case-heading-result' : ''}`}>
           <span className={`hero-tool-icon tool-icon ${useCase.color}`}><Icon size={28} /></span>
           <div>
-            <p className="case-kicker">{useCase.category}</p>
+            <p className="case-kicker">{useCase.areaName || useCase.category}</p>
             <h1>{useCase.title}</h1>
             <p>{useCase.description}</p>
             <p className="case-facts">{useCase.estimatedTime} · Dificultad {String(useCase.difficulty).toLocaleLowerCase('es')}</p>

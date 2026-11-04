@@ -10,12 +10,13 @@ export function UseCaseCard({ item, onOpen }) {
   const progress = entry?.progress ?? 0
   const completed = entry?.status === 'completed' || progress === 100
   const started = !completed && (progress > 0 || entry?.status === 'in_progress')
-  const label = completed ? 'Abrir' : 'Practicar'
+  const ready = (item.fields?.length ?? 0) > 0 && (item.challenges?.length ?? 0) === 3 && Boolean(item.outputTemplate)
+  const label = completed ? 'Abrir' : ready ? 'Practicar' : 'Ver ficha'
   return (
     <article className="use-case-card">
       <div className="use-case-top">
         <span className={`tool-icon ${item.color}`}><Icon size={18} /></span>
-        <span className="case-category">{item.category}</span>
+        <span className="case-category">{item.areaName || item.category}</span>
       </div>
       <h3>
         <button type="button" className="card-hit" onClick={() => onOpen(item.id)}>

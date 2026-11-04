@@ -264,3 +264,38 @@ a.secondary{text-decoration:none}
 .step-prompt .step-prompt-hint{font-size:11px;font-weight:500;letter-spacing:0;text-transform:none;color:#7a7890}
 .guide-step .step-prompt{display:grid;grid-template-columns:1fr;gap:6px}
 
+.onboarding-screen{min-height:100vh;display:grid;place-items:center;padding:28px 16px 40px;background:#f8f8fc}
+.onboarding-card{width:min(560px,100%);display:grid;gap:22px}
+.onboarding-form{display:grid;gap:14px}
+.onboarding-form .progress{margin-top:8px}
+.onboarding-title{font-size:30px;line-height:1.15;margin:4px 0 0}
+.onboarding-title.embedded{font-size:24px}
+.onboarding-title:focus{outline:none}
+.onboarding-hint,.onboarding-note,.preference-empty{font-size:14px;line-height:1.5;color:#6f6d80}
+.onboarding-note{margin:0}
+.choice-group{display:grid;gap:8px;margin-top:8px}
+.choice-group h2{font-size:13px;letter-spacing:0;color:#675ce0}
+.choice-list{display:grid;gap:8px}
+.choice{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:12px 14px;text-align:left;background:#fff;border:1px solid #e7e6ef;border-radius:13px;color:#2c2a3d;font-size:15px;line-height:1.35}
+.choice:hover{border-color:#d4d0f4}
+.choice:focus-visible{outline:3px solid #d9d4ff;outline-offset:2px}
+.choice[aria-pressed="true"]{border-color:#675be2;background:#f6f5ff;box-shadow:0 0 0 3px #ebe8ff}
+.choice-mark{flex:none;width:18px;height:18px;border:2px solid #c9c6d8;border-radius:6px;background:#fff}
+.choice[aria-pressed="true"] .choice-mark{border-color:#675be2;background:#675be2;box-shadow:inset 0 0 0 3px #fff}
+.onboarding-nav{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.onboarding-nav .primary,.onboarding-nav .secondary{width:100%;min-height:48px;margin:0;justify-content:center}
+.onboarding-later{justify-self:center;min-height:44px;padding:8px 12px;background:transparent;color:#6257df;font-weight:700;font-size:14px}
+.onboarding-later:disabled{opacity:.6}
+.preference-card{background:#fff;border:1px solid #e9e8ef;border-radius:16px;padding:22px;margin-bottom:18px}
+.preference-card h2{font-size:20px;margin:6px 0 14px}
+.preference-groups{display:grid;gap:14px}
+.preference-groups h3{font-size:12px;letter-spacing:0;color:#777589;margin-bottom:6px}
+.preference-edit{margin:16px 0 0}
+@media(max-width:570px){
+  .onboarding-screen{padding:20px 16px 28px;align-items:start}
+  .onboarding-title{font-size:26px}
+  .onboarding-nav{position:sticky;bottom:0;z-index:4;background:#f8f8fc;padding:12px 0 4px}
+  .preference-card.editing{padding:16px}
+  .preference-edit{width:100%;justify-content:center}
+}
+

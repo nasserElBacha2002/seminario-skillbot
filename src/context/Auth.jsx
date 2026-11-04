@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { setStorageOwner } from '../lib/storage'
+import { clearOnboardingLater, setStorageOwner } from '../lib/storage'
 
 const AuthContext = createContext(null)
 
@@ -99,9 +99,11 @@ export function AuthProvider({ children }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    const userId = session?.user?.id
     const { error: signOutError } = await supabase.auth.signOut()
     if (signOutError) throw signOutError
-  }, [])
+    clearOnboardingLater(userId)
+  }, [session])
 
   const resetPasswordForEmail = useCallback(async (email) => {
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {

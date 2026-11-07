@@ -522,7 +522,7 @@ Los tres arrays tienen al menos un identificador, no repiten valores, no superan
 
 `profiles.onboarding_completed_at` queda `null` en los usuarios que ya existen y en los que crea `handle_new_user`. El trigger de alta no se modificó.
 
-`use_cases.area` es `text null`. Los valores iniciales son `marketing`, `finanzas` y `administracion`. `null` conserva los ocho casos actuales. `categories` y `use_case_categories` siguen siendo la clasificación por tipo de tarea.
+`use_cases.area` es `text null`. Los valores iniciales son `marketing`, `finanzas` y `administracion`. `null` conserva los ocho casos actuales. `categories` y `use_case_categories` siguen en el esquema por compatibilidad. Explorar no las muestra como filtro.
 
 `use_case_tags` tiene clave primaria `(use_case_id, kind, value)`. `use_case_id` es `text` porque esa es la clave de `use_cases`. `kind` admite `problem`, `goal`, `area`, `tool`, `experience` y `time`. El valor tiene que existir en `onboarding_options` para esa clase. Un caso puede tener varias etiquetas de la misma clase.
 
@@ -612,11 +612,14 @@ Con dos usuarios de Auth, como cada uno:
 - Un `update` directo de `onboarding_completed_at` falla.
 - `use_case_progress` de esa cuenta queda igual.
 
+### Estado después de las Fases 2 y 3
+
+La app llama `complete_onboarding` y lee `area`, `onboarding_options`, `onboarding_responses` y `use_case_tags` en la misma carga del catálogo. El seed publica 53 casos. Los 45 nuevos tienen etiquetas de `onboarding_options`. Los ocho originales siguen sin área y sin etiquetas. El ranking se calcula en el cliente con `rankUseCases` y no se persiste. No hay una RPC ni una tabla de recomendaciones.
+
+`npm test` cubre la definición de práctica, el progreso, el caso del día, la búsqueda y el cuestionario. No reemplaza una prueba de dos usuarios contra una base.
+
 ### Limitaciones
 
-- No se comprobó el proyecto remoto. No asumir que allí existen las cinco migraciones ausentes.
-- La app todavía no llama `complete_onboarding` ni lee `area`. Los selects actuales de perfil y catálogo nombran columnas y no incluyen estos campos.
-- Los ocho casos no tienen área ni etiquetas. Entran en el esquema, pero el matching todavía no tiene con qué puntuarlos. Definir los 45 casos y esas etiquetas es la Fase 2. Los ocho quedan fuera de ese cupo hasta que se decida cuáles siguen en el catálogo principal.
-- No hay tests automatizados en el repositorio. La comprobación de esta fase es SQL sobre la base local, si Docker está disponible.
 - Agregar una quinta clase de etiqueta exige cambiar el `check` de `kind`. Agregar un valor de una clase existente no.
-- No se modificó Auth, progreso ni el centro de ayuda. En esta copia los SQL de esa deuda están trackeados; no se comprobó el remoto.
+- No se modificó Auth, el centro de ayuda ni las políticas históricas de progreso.
+- `onboarding_completed_at` no se escribe desde el cliente. Lo fija el trigger de `onboarding_responses`.

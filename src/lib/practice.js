@@ -1,7 +1,15 @@
 export function practiceFieldsOf(useCase) {
-  const fields = (useCase.fields ?? []).filter((field) => field.practice)
-  const source = fields.length ? fields : (useCase.fields ?? []).slice(0, 3)
+  const fields = (useCase?.fields ?? []).filter((field) => field.practice)
+  const source = fields.length ? fields : (useCase?.fields ?? []).slice(0, 3)
   return [...source].sort((a, b) => (a.practiceOrder ?? 99) - (b.practiceOrder ?? 99))
+}
+
+// Misma condición que la pantalla del caso: hay campos para practicar,
+// exactamente tres desafíos y una plantilla de pedido.
+export function isPracticeReady(useCase) {
+  if (!useCase) return false
+  const challenges = useCase.challenges ?? []
+  return practiceFieldsOf(useCase).length > 0 && challenges.length === 3 && Boolean(useCase.outputTemplate)
 }
 
 export function draftIsReady(useCase, values) {

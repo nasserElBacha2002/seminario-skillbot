@@ -16,7 +16,7 @@ export const STEPS = [
     kind: 'problem',
     multiple: true,
     title: '¿Cuáles son las principales dificultades que enfrentás?',
-    hint: 'Podés mezclar dificultades de Marketing, Finanzas y Administración.',
+    hint: 'Primero aparecen las áreas que elegiste. Las demás quedan al final y son opcionales.',
   },
   {
     key: 'tools',
@@ -150,9 +150,10 @@ export function stepError(stepIndex, answers) {
   return answers[step.key] ? '' : 'Elegí una opción para seguir.'
 }
 
-export function problemGroups(options) {
+export function problemGroups(options, selectedAreas = []) {
   const areaOrder = (options?.area ?? []).map((option) => option.value)
   const areaName = Object.fromEntries((options?.area ?? []).map((option) => [option.value, option.label]))
+  const selected = new Set(selectedAreas ?? [])
   const groups = new Map()
   for (const option of options?.problem ?? []) {
     const id = option.area ?? 'transversal'
@@ -165,11 +166,16 @@ export function problemGroups(options) {
     }
     groups.get(id).options.push(option)
   }
-  return [...groups.values()].sort((a, b) => {
-    const left = a.id === 'transversal' ? areaOrder.length : areaOrder.indexOf(a.id)
-    const right = b.id === 'transversal' ? areaOrder.length : areaOrder.indexOf(b.id)
-    return left - right
-  })
+  const rank = (id) => (id === 'transversal' ? areaOrder.length : areaOrder.indexOf(id))
+  return [...groups.values()]
+    .map((group) => ({
+      ...group,
+      optional: selected.size > 0 && !selected.has(group.id),
+    }))
+    .sort((a, b) => {
+      if (a.optional !== b.optional) return a.optional ? 1 : -1
+      return rank(a.id) - rank(b.id)
+    })
 }
 
 export function optionLabels(options, kind, values) {

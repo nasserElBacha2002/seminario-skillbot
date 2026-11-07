@@ -21,7 +21,7 @@ export function ProgressPage({ setPage }) {
         <div className="page-intro">
           <p className="eyebrow">TU RECORRIDO</p>
           <h1>Tu progreso</h1>
-          <p>Cada caso resuelto queda registrado acá. La tarea se resuelve en el caso, no en esta pantalla.</p>
+          <p>Acá ves las prácticas que terminaste, el XP y los logros. Las fichas sin práctica no entran en la cuenta.</p>
         </div>
         <div className="progress-overview">
           <div className="level-card">
@@ -38,7 +38,7 @@ export function ProgressPage({ setPage }) {
             </div>
           </div>
           <div className="mini-stat-grid">
-            <Stat icon={Check} color="green" value={data.completedCount} label="Casos resueltos" />
+            <Stat icon={Check} color="green" value={data.completedCount} label="Prácticas completadas" />
             <Stat icon={Sparkles} color="violet" value={data.practicedSkills} label="Habilidades practicadas" />
             <Stat icon={Flame} color="orange" value={`${data.streak} ${data.streak === 1 ? 'día' : 'días'}`} label="Racha actual" />
           </div>

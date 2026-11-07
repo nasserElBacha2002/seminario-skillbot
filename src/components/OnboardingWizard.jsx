@@ -125,7 +125,7 @@ export function OnboardingWizard({
   }
 
   const choices = current.kind === 'problem' ? null : (options?.[current.kind] ?? [])
-  const groups = current.kind === 'problem' ? problemGroups(options) : []
+  const groups = current.kind === 'problem' ? problemGroups(options, answers.areas) : []
 
   const form = (
     <form className="onboarding-form" onSubmit={forward} noValidate>
@@ -143,9 +143,15 @@ export function OnboardingWizard({
         aria-labelledby={headingId}
         aria-describedby={current.kind === 'tool' ? toolHintId : undefined}
       >
-        {current.kind === 'problem' ? groups.map((group) => (
+        {current.kind === 'problem' ? groups.map((group, index) => (
           <div key={group.id} className="choice-group">
-            <h2>{group.label}</h2>
+            {group.optional && !groups[index - 1]?.optional && (
+              <p className="choice-optional-lead">Otras áreas, si querés sumarlas</p>
+            )}
+            <h2>
+              {group.label}
+              {group.optional && <span className="choice-optional">Opcional</span>}
+            </h2>
             <div className="choice-list">
               {group.options.map((option) => (
                 <Choice
@@ -175,10 +181,10 @@ export function OnboardingWizard({
         <p id={toolHintId} className="onboarding-note">“Ninguna por ahora” reemplaza al resto. Si elegís otra herramienta, esa opción se suelta.</p>
       )}
       {error && <p className="save-error" role="alert">{error}</p>}
-      <div className="onboarding-nav">
-        {step > 0 ? (
+      <div className={`onboarding-nav${step === 0 ? ' single' : ''}`}>
+        {step > 0 && (
           <button type="button" className="secondary" onClick={back} disabled={submitting}>Anterior</button>
-        ) : <span />}
+        )}
         <button type="submit" className="primary" disabled={submitting} aria-busy={submitting}>
           {submitting ? <LoaderCircle size={17} className="spin" /> : null}
           {submitting ? 'Guardando…' : last ? 'Guardar' : 'Siguiente'}

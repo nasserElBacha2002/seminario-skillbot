@@ -1,5 +1,5 @@
 const LEGACY_SCHEMA_CODES = new Set(['PGRST200', 'PGRST204', '42703', '42P01'])
-const LEGACY_SCHEMA_TEXT = /output_template|use_case_fields|\burl\b|feedback_correct|in_practice|\barea\b/i
+const LEGACY_SCHEMA_TEXT = /output_template|use_case_fields|use_case_tags|\burl\b|feedback_correct|in_practice|\barea\b/i
 
 export function isLegacySchemaError(error) {
   if (!error || !LEGACY_SCHEMA_CODES.has(error.code)) return false

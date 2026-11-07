@@ -19,6 +19,7 @@ function Shell() {
   const [caseId, setCaseId] = useState(null)
   const [origin, setOrigin] = useState('inicio')
   const [askCaseId, setAskCaseId] = useState(null)
+  const [areaFilter, setAreaFilter] = useState('todos')
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -37,13 +38,17 @@ function Shell() {
     setAskCaseId(id)
     setPage('ayuda')
   }
+  const openExplore = (area = 'todos') => {
+    setAreaFilter(area)
+    setPage('explorar')
+  }
   const useCase = data.useCases.find((item) => item.id === caseId)
   if ((page === 'detalle' || page === 'desafio') && !useCase) {
-    return <ExplorePage setPage={setPage} openCase={openCase} />
+    return <ExplorePage setPage={setPage} openCase={openCase} area={areaFilter} onAreaChange={setAreaFilter} />
   }
 
-  if (page === 'inicio') return <HomePage setPage={setPage} openCase={openCase} />
-  if (page === 'explorar') return <ExplorePage setPage={setPage} openCase={openCase} />
+  if (page === 'inicio') return <HomePage setPage={setPage} openCase={openCase} onExplore={openExplore} />
+  if (page === 'explorar') return <ExplorePage setPage={setPage} openCase={openCase} area={areaFilter} onAreaChange={setAreaFilter} />
   if (page === 'detalle' || page === 'desafio') return <UseCasePage setPage={setPage} useCase={useCase} origin={origin} onAsk={askCommunity} />
   if (page === 'progreso') return <ProgressPage setPage={setPage} />
   if (page === 'ayuda') {
@@ -61,8 +66,8 @@ function Entry() {
     setLater(loadOnboardingLater(user?.id))
   }, [user?.id])
 
-  if (loading || !data) return <Boot />
   if (error) return <BootError error={error} onRetry={reload} />
+  if (loading || !data) return <Boot />
   if (data.onboarding?.completedAt || later) return <Shell />
 
   const allowLater = canPostponeOnboarding({

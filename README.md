@@ -1,6 +1,6 @@
 # SkillBot
 
-Aplicación de práctica para aprender a resolver tareas cotidianas con IA. El usuario explora casos de uso, sigue un recorrido paso a paso y resuelve desafíos que le dan XP, suben sus habilidades y desbloquean logros.
+Plataforma para emprendedores que quieren resolver problemas de Marketing, Finanzas y Administración con inteligencia artificial. El usuario completa un cuestionario de seis preguntas, recibe casos recomendados y, en las prácticas disponibles, resuelve desafíos que le dan XP, suben sus habilidades y desbloquean logros.
 
 Proyecto de seminario (UADE). React + Vite en el frontend, Supabase (Postgres) como base de datos.
 
@@ -32,6 +32,7 @@ La `anon key` es pública por diseño (la protección real son las políticas de
 | `npm run dev` | Servidor de desarrollo con recarga en caliente |
 | `npm run build` | Build de producción en `dist/` |
 | `npm run preview` | Sirve el build para revisarlo |
+| `npm test` | Pruebas de prácticas, progreso, caso del día, búsqueda, onboarding y borrador |
 
 ## Base de datos
 
@@ -53,7 +54,8 @@ El schema vive en [supabase/migrations/](supabase/migrations/) y los datos inici
 12. Pegar y ejecutar [supabase/migrations/20261027160000_harden_update_profile_name.sql](supabase/migrations/20261027160000_harden_update_profile_name.sql).
 13. Pegar y ejecutar [supabase/migrations/20261027200000_help_community.sql](supabase/migrations/20261027200000_help_community.sql) (centro de ayuda).
 14. Pegar y ejecutar [supabase/migrations/20261027210000_help_community_auth.sql](supabase/migrations/20261027210000_help_community_auth.sql).
-15. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql).
+15. Pegar y ejecutar [supabase/migrations/20261103120000_onboarding_model.sql](supabase/migrations/20261103120000_onboarding_model.sql).
+16. En una query nueva, pegar y ejecutar [supabase/seed.sql](supabase/seed.sql). El seed deja 53 casos publicados: los 8 originales y 45 para emprendedores.
 
 La activación de Auth (Email provider, Site URL, usuarios de prueba) está en [SUPABASE_SETUP.md](SUPABASE_SETUP.md).
 
@@ -64,7 +66,7 @@ Para copiar al portapapeles sin abrir los archivos (macOS): `pbcopy < supabase/s
 Si después querés usar el CLI, hay que avisarle que esas migraciones ya corrieron, porque aplicarlas por el editor no las registra en el historial:
 
 ```bash
-supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000 20261027150000 20261027160000 20261027200000 20261027210000
+supabase migration repair --status applied 20261006232500 20261012230000 20261020210000 20261020223000 20261021010000 20261021020000 20261027120000 20261027130000 20261027140000 20261027150000 20261027160000 20261027200000 20261027210000 20261103120000
 ```
 
 ### Opción B: Supabase CLI
@@ -92,7 +94,7 @@ supabase stop
 
 ## Schema
 
-Diecinueve tablas, todas con RLS activado.
+Veintiséis tablas en `public`, todas con RLS activado.
 
 **Catálogos y configuración**
 
@@ -106,12 +108,12 @@ Diecinueve tablas, todas con RLS activado.
 
 | Tabla | Contenido |
 |---|---|
-| `use_cases` | Ficha del caso: situación, habilidad, dificultad, tiempo, error típico, qué aprende, XP y estado (`published` o `reserve`) |
-| `categories` / `use_case_categories` | Categorías del filtro; un caso puede tener varias y una es la principal |
+| `use_cases` | Ficha del caso: situación, habilidad, dificultad, tiempo, error típico, qué aprende, XP, estado (`published` o `reserve`) y `area` (`marketing`, `finanzas`, `administracion` o null en los ocho originales) |
+| `categories` / `use_case_categories` | Clasificación histórica por tipo de tarea. Sigue en la base, pero Explorar ya no la muestra como filtro. |
 | `tools` / `use_case_tools` | IA recomendadas por caso, con rol (`primary`, `alternative`, `complement`) y el motivo |
 | `use_case_steps` | Paso a paso, con prompt de ejemplo, checklist y confirmación obligatoria opcionales |
 | `use_case_survey_tasks` | Tareas de la encuesta que cubre el caso y sus menciones |
-| `use_case_challenges` / `challenge_options` | Desafío de opción múltiple con feedback por opción; una sola correcta por caso |
+| `use_case_challenges` / `challenge_options` | Desafíos de opción múltiple con feedback por opción; una sola correcta por desafío |
 
 **Datos del usuario**
 
@@ -132,7 +134,17 @@ Diecinueve tablas, todas con RLS activado.
 | `help_topics` | Preguntas de la comunidad, con caso relacionado opcional y la respuesta marcada como solución |
 | `help_replies` | Respuestas a cada pregunta |
 
-Cualquiera lee todo. Cada cuenta publica con su propio perfil. El nombre del autor lo copia un trigger desde `profiles`, así que no se puede publicar con otro nombre. Solo el autor de la pregunta puede marcar la solución.
+Cualquiera lee el centro de ayuda. Cada cuenta publica con su propio perfil. El nombre del autor lo copia un trigger desde `profiles`, así que no se puede publicar con otro nombre. Solo el autor de la pregunta puede marcar la solución.
+
+**Onboarding**
+
+| Tabla | Contenido |
+|---|---|
+| `onboarding_options` | Vocabulario de áreas, problemas, herramientas, experiencia, objetivo y tiempo. Lectura pública. |
+| `onboarding_responses` | Una fila por usuario. Solo el dueño la lee y la escribe. |
+| `use_case_tags` | Etiquetas del caso, con ids de `onboarding_options`. No guardan datos personales. |
+
+`complete_onboarding` guarda las seis respuestas del usuario autenticado (`auth.uid()`) y, si `profiles.onboarding_completed_at` era null, lo fija en la misma transacción. Una edición posterior no mueve esa fecha. El cliente no actualiza esa columna a mano.
 
 `complete_practice_challenge(use_case_id, position, selected, day)` suma el XP de un desafío una sola vez. El servidor decide si la opción es correcta leyendo `challenge_options.is_correct`; el cliente no envía `p_correct`. Al terminar los tres, suma el bonus, marca el caso y sube la habilidad. Copiar el pedido o abrir una herramienta no suma XP. Si el caso ya estaba completado, no se vuelve a pagar.
 
@@ -149,12 +161,15 @@ El perfil demo (Martín) ya no participa en runtime. Los pasos para aplicar la m
 ```
 src/
   App.jsx                  Gate de sesión y enrutado por estado
-  pages/                   Login, registro, inicio, explorar, caso, desafío, progreso y perfil
-  components/              Buscador, formulario dinámico y resultado
+  pages/                   Login, registro, inicio, explorar, caso, progreso y perfil
+  components/              Buscador, formulario dinámico, resultado y OnboardingWizard.jsx
   data/guidedCases.js      Fixture temporal. Borrarlo cuando la migración y el seed estén aplicados
   styles.css               Estilos
   lib/supabase.js          Cliente de Supabase con persistencia de sesión
   lib/queries.js           Lecturas y escrituras contra la base del usuario autenticado
+  lib/onboarding.js        Preguntas, validación y normalización de respuestas
+  lib/matching.js          Ranking de casos a partir de las respuestas
+  lib/progress.js          Porcentaje de progreso, solo sobre prácticas completables
   context/Auth.jsx         Sesión, signIn, signUp y signOut
   context/SkillbotData.jsx Provider: carga, estados derivados y mutadores
 supabase/
@@ -163,13 +178,13 @@ supabase/
   seeds/reset_progress.sql Vuelve a cero el progreso de un perfil (uuid obligatorio)
 ```
 
-El provider carga todo al montar (catálogo incluido) y expone `data`, `loading`, `error` y los mutadores `toggleStep`, `markResolved` y `completeChallenge`. Los valores derivados (racha, grilla semanal, progreso general, casos resueltos, habilidades practicadas) se calculan en `derive()` a partir de las filas, no se guardan.
+El provider carga todo al montar (catálogo, etiquetas y onboarding incluidos) y expone `data`, `loading`, `error`, `reload`, `recommendations`, `personalized` y los mutadores `toggleStep`, `beginPractice`, `restartPractice`, `finishChallenge`, `saveDisplayName` y `saveOnboarding`. Los valores derivados (racha, grilla semanal, progreso de prácticas, casos resueltos, habilidades practicadas) se calculan en `derive()` a partir de las filas, no se guardan. El ranking sale de `rankUseCases` en [src/lib/matching.js](src/lib/matching.js): corre en memoria, no se guarda en la base y se recalcula al editar las respuestas. Las fórmulas están en [docs/fase-4-5-matching-dashboard.md](docs/fase-4-5-matching-dashboard.md).
 
 ## El catálogo de casos de uso
 
-Los casos viven en la base y se cargan desde [supabase/seed.sql](supabase/seed.sql). Para agregar o editar un caso alcanza con tocar el seed y volver a correrlo: no hace falta cambiar código. Las pantallas de detalle y desafío se arman con lo que trae cada caso.
+Los casos viven en la base y se cargan desde [supabase/seed.sql](supabase/seed.sql). El catálogo publicado tiene 53 casos: 8 originales, sin área, y 45 nuevos (15 de Marketing, 15 de Finanzas y 15 de Administración). Once tienen práctica completa (los 8 originales más `auditoria-instagram`, `diagnostico-financiero` y `pedidos-multicanal`). Los otros 42 son fichas: se pueden abrir, muestran la situación y el error frecuente, no habilitan desafíos y no entran en el porcentaje de progreso ni en el caso del día. Explorar filtra solo por área de negocio. Para agregar o editar un caso alcanza con tocar el seed y volver a correrlo. Las pantallas de detalle se arman con lo que trae cada caso.
 
-- `use_cases.icon` es el nombre de un ícono de `lucide-react`. Tiene que estar en `caseIcons` en [src/App.jsx](src/App.jsx); si no, se muestra uno genérico.
+- `use_cases.icon` es el nombre de un ícono de `lucide-react`. Tiene que estar en `caseIcons` en [src/components/icons.js](src/components/icons.js); si no, se muestra uno genérico.
 - `use_cases.skill_id` define qué habilidad sube al resolverlo.
 - Un paso con `requires_confirmation` bloquea los pasos siguientes y el desafío hasta que el usuario lo confirma con el texto de `confirmation_label` (por ejemplo, "Hice una copia de la planilla").
 - Los casos con `status = 'reserve'` no le llegan a la app.
@@ -196,6 +211,14 @@ La lógica está en `loadWithAchievements` en [src/context/SkillbotData.jsx](src
 | 3 días practicando | racha de 3 días |
 | Explorador de IA | 3 casos de uso distintos empezados |
 | 5 problemas resueltos | 5 casos completados |
+
+## Estado del MVP
+
+Terminado en código: autenticación, onboarding de seis preguntas, ranking en el cliente, inicio con recomendaciones, explorar por área, 53 casos, 11 prácticas, 42 fichas, progreso, XP, logros y centro de ayuda.
+
+Verificado con pruebas automáticas, build y consultas de solo lectura a la base. El recorrido con una cuenta real (registro, cuestionario, práctica y progreso) no se ejecutó en esta entrega para no escribir datos en el proyecto remoto. El detalle está en [docs/fase-6-qa-final.md](docs/fase-6-qa-final.md).
+
+No hay un despliegue de producción documentado. El bundle de producción supera 500 kB y Vite avisa por eso y por la directiva `use client` de `lucide-react`.
 
 ## Problemas frecuentes
 

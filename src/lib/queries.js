@@ -43,7 +43,8 @@ const USE_CASE_COLUMNS = `
   steps:use_case_steps(position, body, example_prompt, checklist, requires_confirmation, confirmation_label),
   survey:use_case_survey_tasks(position, task, mentions),
   fields:use_case_fields(id, key, label, type, placeholder, required, position, options, helper_text, in_practice),
-  challenges:use_case_challenges(position, type, title, instruction, scenario, question, feedback_correct, feedback_incorrect, xp, options:challenge_options(letter, body, is_correct, feedback))
+  challenges:use_case_challenges(position, type, title, instruction, scenario, question, feedback_correct, feedback_incorrect, xp, options:challenge_options(letter, body, is_correct, feedback)),
+  tags:use_case_tags(kind, value)
 `
 
 const LEGACY_CATEGORIES = new Set(['administracion', 'vinculacion', 'explicacion-ia', 'diseno', 'programacion'])
@@ -174,6 +175,9 @@ function toUseCase(row) {
     mistake: row.common_mistake,
     learning: row.learning_outcome,
     outputTemplate: row.output_template ?? '',
+    minutes: row.estimated_minutes ?? null,
+    sortOrder: row.sort_order ?? 0,
+    tags: [...(row.tags ?? [])].map((tag) => ({ kind: tag.kind, value: tag.value })),
     tools: [...row.tools].sort(byKey('sort_order')).map((x) => ({ id: x.tool.id, name: x.tool.name, role: x.role, reason: x.reason, url: x.tool?.url ?? '' })),
     steps: [...row.steps].sort(byKey('position')).map((x) => ({
       position: x.position,
@@ -253,7 +257,7 @@ export async function fetchSkillbotData() {
     profile: {
       name: profile.display_name,
       initials: profile.initials,
-      goal: profile.goal || 'Resolver tareas concretas usando IA, sin tener que saber de antemano qué herramienta elegir.',
+      goal: profile.goal || 'Resolver problemas del emprendimiento con IA.',
       interests: profile.interests ?? [],
       xp: profile.xp,
       createdAt: profile.created_at,

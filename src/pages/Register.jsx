@@ -41,19 +41,17 @@ function validate({ name, email, password, confirmPassword }) {
 }
 
 export function Register({ email, onEmailChange, onLogin }) {
-  const { signUp } = useAuth()
+  const { signUp, signIn } = useAuth()
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [needsConfirm, setNeedsConfirm] = useState(false)
 
   function goToLogin() {
     setPassword('')
     setConfirmPassword('')
     setError('')
-    setNeedsConfirm(false)
     onLogin()
   }
 
@@ -79,16 +77,27 @@ export function Register({ email, onEmailChange, onLogin }) {
         password,
         displayName: nextName,
       })
-      setPassword('')
-      setConfirmPassword('')
-      if (data.session) return
+      if (data.session) {
+        setPassword('')
+        setConfirmPassword('')
+        return
+      }
       if (!data.user) {
         setError('No pudimos crear la cuenta. Intentá nuevamente.')
         return
       }
-      setNeedsConfirm(true)
+      // Sin confirmación de mail, el signup debería devolver sesión.
+      // Si el proyecto remoto todavía la exige, intentamos entrar igual.
+      await signIn(nextEmail, password)
+      setPassword('')
+      setConfirmPassword('')
     } catch (signUpError) {
-      setError(signUpMessage(signUpError))
+      const text = String(signUpError?.message ?? '').toLowerCase()
+      if (text.includes('email not confirmed')) {
+        setError('La confirmación de email sigue activa en Supabase. Desactivala en Authentication → Providers → Email → Confirm email.')
+      } else {
+        setError(signUpMessage(signUpError))
+      }
     } finally {
       setSubmitting(false)
     }
@@ -96,93 +105,82 @@ export function Register({ email, onEmailChange, onLogin }) {
 
   return (
     <AuthLayout>
-      {needsConfirm ? (
-        <div className="login-form">
-          <div className="mobile-logo"><Logo /></div>
-          <h2>Revisá tu correo</h2>
-          <p>Te enviamos un correo para confirmar tu cuenta. Después de confirmarla vas a poder iniciar sesión.</p>
-          <button type="button" className="primary login-button" onClick={goToLogin}>
-            Volver a iniciar sesión
-          </button>
-        </div>
-      ) : (
-        <form className="login-form" onSubmit={handleSubmit} noValidate>
-          <div className="mobile-logo"><Logo /></div>
-          <h2>Creá tu cuenta</h2>
-          <p>Registrate con tu nombre, email y una contraseña.</p>
-          <label>
-            Nombre
-            <input
-              type="text"
-              autoComplete="name"
-              placeholder="Tu nombre"
-              value={name}
-              onChange={(event) => {
-                setName(event.target.value)
-                if (error) setError('')
-              }}
-              disabled={submitting}
-              aria-invalid={Boolean(error)}
-            />
-          </label>
-          <label>
-            Email
-            <input
-              type="email"
-              autoComplete="email"
-              placeholder="nombre@ejemplo.com"
-              value={email}
-              onChange={(event) => {
-                onEmailChange(event.target.value)
-                if (error) setError('')
-              }}
-              disabled={submitting}
-              aria-invalid={Boolean(error)}
-            />
-          </label>
-          <label>
-            Contraseña
-            <input
-              type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value)
-                if (error) setError('')
-              }}
-              disabled={submitting}
-              aria-invalid={Boolean(error)}
-            />
-            <small className="login-hint">Mínimo {MIN_PASSWORD} caracteres.</small>
-          </label>
-          <label>
-            Confirmar contraseña
-            <input
-              type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(event) => {
-                setConfirmPassword(event.target.value)
-                if (error) setError('')
-              }}
-              disabled={submitting}
-              aria-invalid={Boolean(error)}
-            />
-          </label>
-          {error && <p className="login-error" role="alert">{error}</p>}
-          <button type="submit" className="primary login-button" disabled={submitting} aria-busy={submitting}>
-            {submitting ? <LoaderCircle size={18} className="spin" /> : null}
-            {submitting ? 'Creando cuenta…' : 'Crear cuenta'}
-            {submitting ? null : <ArrowRight size={18} />}
-          </button>
-          <p className="login-switch">
-            ¿Ya tenés cuenta?{' '}
-            <button type="button" onClick={goToLogin}>Iniciar sesión</button>
-          </p>
-        </form>
-      )}
+      <form className="login-form" onSubmit={handleSubmit} noValidate>
+        <div className="mobile-logo"><Logo /></div>
+        <h2>Creá tu cuenta</h2>
+        <p>Registrate con tu nombre, email y una contraseña.</p>
+        <label>
+          Nombre
+          <input
+            type="text"
+            autoComplete="name"
+            placeholder="Tu nombre"
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value)
+              if (error) setError('')
+            }}
+            disabled={submitting}
+            aria-invalid={Boolean(error)}
+          />
+        </label>
+        <label>
+          Email
+          <input
+            type="email"
+            autoComplete="email"
+            placeholder="nombre@ejemplo.com"
+            value={email}
+            onChange={(event) => {
+              onEmailChange(event.target.value)
+              if (error) setError('')
+            }}
+            disabled={submitting}
+            aria-invalid={Boolean(error)}
+          />
+        </label>
+        <label>
+          Contraseña
+          <input
+            type="password"
+            autoComplete="new-password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(event) => {
+              setPassword(event.target.value)
+              if (error) setError('')
+            }}
+            disabled={submitting}
+            aria-invalid={Boolean(error)}
+          />
+          <small className="login-hint">Mínimo {MIN_PASSWORD} caracteres.</small>
+        </label>
+        <label>
+          Confirmar contraseña
+          <input
+            type="password"
+            autoComplete="new-password"
+            placeholder="••••••••"
+            value={confirmPassword}
+            onChange={(event) => {
+              setConfirmPassword(event.target.value)
+              if (error) setError('')
+            }}
+            disabled={submitting}
+            aria-invalid={Boolean(error)}
+          />
+        </label>
+        {error && <p className="login-error" role="alert">{error}</p>}
+        <button type="submit" className="primary login-button" disabled={submitting} aria-busy={submitting}>
+          {submitting ? <LoaderCircle size={18} className="spin" /> : null}
+          {submitting ? 'Creando cuenta…' : 'Crear cuenta'}
+          {submitting ? null : <ArrowRight size={18} />}
+        </button>
+        <p className="login-switch">
+          ¿Ya tenés cuenta?{' '}
+          <button type="button" onClick={goToLogin}>Iniciar sesión</button>
+        </p>
+      </form>
     </AuthLayout>
   )
 }

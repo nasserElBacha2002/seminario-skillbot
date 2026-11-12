@@ -327,6 +327,15 @@ test('las prácticas ocupan como mucho la mitad y el resto sigue el puntaje', ()
   assert.equal(more.filter((item) => item.practiceReady).length, 5)
 })
 
+test('un caso empezado o completado no se recomienda y deja su lugar a otra práctica', () => {
+  const ranking = rankUseCases(answers({ problems: ['controlar_gastos'], primaryGoal: 'ordenar_finanzas' }), [
+    ...Array.from({ length: 6 }, (_, index) => useCase({ id: `ficha-${index}`, sortOrder: index, tags: gastosYObjetivo })),
+    ...Array.from({ length: 4 }, (_, index) => useCase({ id: `practica-${index}`, sortOrder: 10 + index, practice: true, tags: gastos })),
+  ], options)
+  const selected = selectRecommendations(ranking, { exclude: ['practica-0', 'ficha-0'] })
+  assert.deepEqual(selected.map((item) => item.id), ['practica-1', 'practica-2', 'practica-3', 'ficha-1', 'ficha-2', 'ficha-3'])
+})
+
 test('la selección no incluye casos sin puntaje ni pasa el límite', () => {
   const ranking = rankUseCases(answers({ problems: ['controlar_gastos'] }), [
     useCase({ id: 'practica', practice: true, tags: gastos }),

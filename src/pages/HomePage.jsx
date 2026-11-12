@@ -22,7 +22,9 @@ function completedCases(useCases, progress) {
 export function HomePage({ setPage, openCase, onExplore }) {
   const { data, recommendations, personalized } = useSkillbotData()
   const byId = new Map(data.useCases.map((item) => [item.id, item]))
-  const recommended = personalized ? selectRecommendations(recommendations) : []
+  const recommended = personalized
+    ? selectRecommendations(recommendations, { exclude: Object.keys(data.progress) })
+    : []
   const daily = caseOfTheDay(data.useCases)
   const DailyIcon = daily ? caseIcon(daily) : null
   const started = startedCases(data.useCases, data.progress)

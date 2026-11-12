@@ -108,7 +108,7 @@ Veintiséis tablas en `public`, todas con RLS activado.
 
 | Tabla | Contenido |
 |---|---|
-| `use_cases` | Ficha del caso: situación, habilidad, dificultad, tiempo, error típico, qué aprende, XP, estado (`published` o `reserve`) y `area` (`marketing`, `finanzas`, `administracion` o null en los ocho originales) |
+| `use_cases` | Ficha del caso: situación, habilidad, dificultad, tiempo, error típico, qué aprende, XP, estado (`published` o `reserve`) y `area` (`marketing`, `finanzas`, `administracion` o null en `estudiar-material`, que sirve para cualquier área) |
 | `categories` / `use_case_categories` | Clasificación histórica por tipo de tarea. Sigue en la base, pero Explorar ya no la muestra como filtro. |
 | `tools` / `use_case_tools` | IA recomendadas por caso, con rol (`primary`, `alternative`, `complement`) y el motivo |
 | `use_case_steps` | Paso a paso, con prompt de ejemplo, checklist y confirmación obligatoria opcionales |
@@ -178,11 +178,11 @@ supabase/
   seeds/reset_progress.sql Vuelve a cero el progreso de un perfil (uuid obligatorio)
 ```
 
-El provider carga todo al montar (catálogo, etiquetas y onboarding incluidos) y expone `data`, `loading`, `error`, `reload`, `recommendations`, `personalized` y los mutadores `toggleStep`, `beginPractice`, `restartPractice`, `finishChallenge`, `saveDisplayName` y `saveOnboarding`. Los valores derivados (racha, grilla semanal, progreso de prácticas, casos resueltos, habilidades practicadas) se calculan en `derive()` a partir de las filas, no se guardan. El ranking sale de `rankUseCases` en [src/lib/matching.js](src/lib/matching.js): corre en memoria, no se guarda en la base y se recalcula al editar las respuestas. Las fórmulas están en [docs/fase-4-5-matching-dashboard.md](docs/fase-4-5-matching-dashboard.md).
+El provider carga todo al montar (catálogo, etiquetas y onboarding incluidos) y expone `data`, `loading`, `error`, `reload`, `recommendations`, `personalized` y los mutadores `toggleStep`, `beginPractice`, `restartPractice`, `finishChallenge`, `saveDisplayName` y `saveOnboarding`. Los valores derivados (racha, grilla semanal, progreso de prácticas, casos resueltos, habilidades practicadas) se calculan en `derive()` a partir de las filas, no se guardan. El ranking sale de `rankUseCases` en [src/lib/matching.js](src/lib/matching.js): corre en memoria, no se guarda en la base y se recalcula al editar las respuestas. El Inicio no muestra el ranking crudo: `selectRecommendations` elige seis casos, pone primero hasta tres prácticas que coinciden con un problema o con el objetivo, y deja afuera los casos empezados o completados, que ya tienen su propia sección. Las fórmulas están en [docs/fase-4-5-matching-dashboard.md](docs/fase-4-5-matching-dashboard.md).
 
 ## El catálogo de casos de uso
 
-Los casos viven en la base y se cargan desde [supabase/seed.sql](supabase/seed.sql). El catálogo publicado tiene 53 casos: 8 originales, sin área, y 45 nuevos (15 de Marketing, 15 de Finanzas y 15 de Administración). Once tienen práctica completa (los 8 originales más `auditoria-instagram`, `diagnostico-financiero` y `pedidos-multicanal`). Los otros 42 son fichas: se pueden abrir, muestran la situación y el error frecuente, no habilitan desafíos y no entran en el porcentaje de progreso ni en el caso del día. Explorar filtra solo por área de negocio. Para agregar o editar un caso alcanza con tocar el seed y volver a correrlo. Las pantallas de detalle se arman con lo que trae cada caso.
+Los casos viven en la base y se cargan desde [supabase/seed.sql](supabase/seed.sql). El catálogo publicado tiene 53 casos: 8 originales y 45 nuevos (15 de Marketing, 15 de Finanzas y 15 de Administración). Los originales también tienen etiquetas y área, salvo `estudiar-material`, que queda sin área y solo aparece en Todas. Once tienen práctica completa (los 8 originales más `auditoria-instagram`, `diagnostico-financiero` y `pedidos-multicanal`). Los otros 42 son fichas: se pueden abrir, muestran la situación y el error frecuente, no habilitan desafíos y no entran en el porcentaje de progreso ni en el caso del día. Explorar filtra solo por área de negocio. Para agregar o editar un caso alcanza con tocar el seed y volver a correrlo. Las pantallas de detalle se arman con lo que trae cada caso.
 
 - `use_cases.icon` es el nombre de un ícono de `lucide-react`. Tiene que estar en `caseIcons` en [src/components/icons.js](src/components/icons.js); si no, se muestra uno genérico.
 - `use_cases.skill_id` define qué habilidad sube al resolverlo.

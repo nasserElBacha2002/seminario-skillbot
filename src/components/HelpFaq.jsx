@@ -12,8 +12,8 @@ const topics = [
     id: 'uso',
     title: 'Usar SkillBot',
     questions: [
-      ['¿Qué es un caso de uso?', 'Es un problema concreto del emprendimiento que se puede encarar con IA, en Marketing, Finanzas o Administración. Cada caso trae la situación y el error más común. Once, además, tienen una práctica guiada.'],
-      ['¿Cómo encuentro un caso para lo que necesito?', 'En Explorar, escribí el problema con tus palabras y filtrá por Marketing, Finanzas o Administración. Todas muestra el catálogo completo, incluidos los casos anteriores.'],
+      ['¿Qué es un caso de uso?', 'Es un problema concreto del emprendimiento que se puede encarar con IA, en Marketing, Finanzas o Administración. Cada caso trae la situación y el error más común. Algunos, además, tienen una práctica guiada.'],
+      ['¿Cómo encuentro un caso para lo que necesito?', 'En Explorar, escribí el problema con tus palabras y filtrá por Marketing, Finanzas o Administración. Todas muestra el catálogo completo.'],
       ['¿Puedo dejar un caso a la mitad?', 'Sí. Tu avance queda guardado y en Inicio aparece "Seguí donde quedaste" para retomarlo.'],
       ['¿Por qué el desafío está bloqueado?', 'Se habilita cuando completás los pasos del caso.'],
     ],

@@ -183,9 +183,11 @@ function matchesProfile(entry) {
 
 // Una práctica entra antes que una ficha si coincide con un problema o con el
 // objetivo; el área sola no alcanza, igual que en el ranking. Los lugares que
-// sobran van a los casos de mayor puntaje, tengan práctica o no.
-export function selectRecommendations(ranking, { limit = 6, practiceSlots = 3 } = {}) {
-  const candidates = (ranking ?? []).filter((entry) => entry.score > 0)
+// sobran van a los casos de mayor puntaje, tengan práctica o no. Los ids de
+// `exclude` no entran y su lugar pasa al siguiente.
+export function selectRecommendations(ranking, { limit = 6, practiceSlots = 3, exclude = [] } = {}) {
+  const skip = new Set(exclude)
+  const candidates = (ranking ?? []).filter((entry) => entry.score > 0 && !skip.has(entry.id))
   const practices = candidates
     .filter((entry) => entry.practiceReady && matchesProfile(entry))
     .slice(0, Math.min(practiceSlots, limit))

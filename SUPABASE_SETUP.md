@@ -522,7 +522,7 @@ Los tres arrays tienen al menos un identificador, no repiten valores, no superan
 
 `profiles.onboarding_completed_at` queda `null` en los usuarios que ya existen y en los que crea `handle_new_user`. El trigger de alta no se modificó.
 
-`use_cases.area` es `text null`. Los valores iniciales son `marketing`, `finanzas` y `administracion`. `null` conserva los ocho casos actuales. `categories` y `use_case_categories` siguen en el esquema por compatibilidad. Explorar no las muestra como filtro.
+`use_cases.area` es `text null`. Los valores iniciales son `marketing`, `finanzas` y `administracion`. La migración deja `null` en los casos que ya existían; el seed después asigna área a los originales, salvo `estudiar-material`, que sirve para cualquiera. `categories` y `use_case_categories` siguen en el esquema por compatibilidad. Explorar no las muestra como filtro.
 
 `use_case_tags` tiene clave primaria `(use_case_id, kind, value)`. `use_case_id` es `text` porque esa es la clave de `use_cases`. `kind` admite `problem`, `goal`, `area`, `tool`, `experience` y `time`. El valor tiene que existir en `onboarding_options` para esa clase. Un caso puede tener varias etiquetas de la misma clase.
 
@@ -614,7 +614,7 @@ Con dos usuarios de Auth, como cada uno:
 
 ### Estado después de las Fases 2 y 3
 
-La app llama `complete_onboarding` y lee `area`, `onboarding_options`, `onboarding_responses` y `use_case_tags` en la misma carga del catálogo. El seed publica 53 casos. Los 45 nuevos tienen etiquetas de `onboarding_options`. Los ocho originales siguen sin área y sin etiquetas. El ranking se calcula en el cliente con `rankUseCases` y no se persiste. No hay una RPC ni una tabla de recomendaciones.
+La app llama `complete_onboarding` y lee `area`, `onboarding_options`, `onboarding_responses` y `use_case_tags` en la misma carga del catálogo. El seed publica 53 casos. Los 45 nuevos tienen etiquetas de `onboarding_options`. Los ocho originales también tienen etiquetas y, salvo `estudiar-material`, área. En una base que ya tenía el seed anterior alcanza con correr el último bloque de `seed.sql` (el que empieza con el comentario "Area y etiquetas de matching"). El ranking se calcula en el cliente con `rankUseCases` y no se persiste. No hay una RPC ni una tabla de recomendaciones.
 
 `npm test` cubre la definición de práctica, el progreso, el caso del día, la búsqueda y el cuestionario. No reemplaza una prueba de dos usuarios contra una base.
 

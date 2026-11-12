@@ -89,7 +89,7 @@ export function HelpPage({ setPage, openCase, askCaseId, clearAsk }) {
           <div>
             <p className="eyebrow">CENTRO DE AYUDA</p>
             <h1>Preguntá, respondé y aprendé con otros</h1>
-            <p>Si te trabaste con una tarea o con una IA, abrí una pregunta. Cualquiera puede responder.</p>
+            <p>Si te trabaste con un caso o con una IA, abrí una pregunta. Cualquiera puede responder.</p>
           </div>
           {tab === 'comunidad' && !composing && !error && (
             <button type="button" className="primary" onClick={() => setComposing(true)}>

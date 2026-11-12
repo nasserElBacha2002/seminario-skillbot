@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useAuth } from './Auth'
 import {
   clearCaseSteps,
+  completeOnboarding,
   completePracticeChallenge,
   fetchSkillbotData,
   markActivityToday,
@@ -11,6 +12,9 @@ import {
   toDayString,
   unlockAchievement,
 } from '../lib/queries'
+import { hasRecommendationInput, rankUseCases } from '../lib/matching'
+import { summarizePracticeProgress } from '../lib/progress'
+import { clearOnboardingDraft } from '../lib/storage'
 
 const WEEK_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
@@ -49,17 +53,14 @@ function derive(raw) {
   // Un caso que paso a reserva deja de venir en el catalogo; su progreso no cuenta.
   const caseIds = new Set(raw.useCases.map((x) => x.id))
   const progress = Object.fromEntries(Object.entries(raw.progress).filter(([id]) => caseIds.has(id)))
-  const entries = Object.values(progress)
-  const completedCount = entries.filter((x) => x.status === 'completed').length
-  const totalCases = raw.useCases.length
-  const accumulated = entries.reduce((sum, x) => sum + x.progress, 0)
+  const summary = summarizePracticeProgress(raw.useCases, progress)
 
   return {
     ...raw,
     progress,
-    completedCount,
-    totalCases,
-    overallProgress: totalCases ? Math.round(accumulated / totalCases) : 0,
+    completedCount: summary.completedCount,
+    totalCases: summary.totalCases,
+    overallProgress: summary.overallProgress,
     practicedSkills: raw.skills.filter((x) => x.value > 0).length,
     levelProgress: raw.level?.next_xp ? Math.round((raw.profile.xp / raw.level.next_xp) * 100) : 100,
     streak: countStreak(raw.activityDays),
@@ -151,6 +152,22 @@ export function SkillbotDataProvider({ children }) {
     return Number(awarded) || 0
   }, [])
 
+  const saveOnboarding = useCallback(async (answers) => {
+    const current = dataRef.current
+    const saved = await completeOnboarding(answers, current?.onboarding?.completedAt ?? null)
+    clearOnboardingDraft()
+    if (!current) return saved
+    setData({
+      ...current,
+      onboarding: {
+        ...current.onboarding,
+        completedAt: saved.completedAt,
+        answers: saved.answers,
+      },
+    })
+    return saved
+  }, [])
+
   const saveDisplayName = useCallback(async (displayName) => {
     const row = await updateProfileName(displayName)
     const current = dataRef.current
@@ -166,9 +183,15 @@ export function SkillbotDataProvider({ children }) {
     return row
   }, [])
 
+  const recommendations = useMemo(
+    () => (data ? rankUseCases(data.onboarding?.answers, data.useCases, data.onboarding?.options) : []),
+    [data],
+  )
+  const personalized = Boolean(data?.onboarding?.completedAt && hasRecommendationInput(data.onboarding?.answers))
+
   const value = useMemo(
-    () => ({ data, loading: !data && !error, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName }),
-    [data, error, reload, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName],
+    () => ({ data, loading: !data && !error, error, reload, recommendations, personalized, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName, saveOnboarding }),
+    [data, error, reload, recommendations, personalized, toggleStep, beginPractice, restartPractice, finishChallenge, saveDisplayName, saveOnboarding],
   )
 
   return <SkillbotDataContext.Provider value={value}>{children}</SkillbotDataContext.Provider>

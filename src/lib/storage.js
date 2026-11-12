@@ -8,6 +8,8 @@ const draftKey = (id) => ownerKey('draft', id)
 const resultKey = (id) => ownerKey('result', id)
 const sessionKey = (id) => ownerKey('session', id)
 const recentKey = () => ownerKey('recent')
+const onboardingKey = () => ownerKey('onboarding')
+const laterKey = (userId) => (userId ? `skillbot:${userId}:onboarding-later` : null)
 
 function ownerKey(kind, useCaseId) {
   if (!ownerId) return null
@@ -105,6 +107,64 @@ export function recentCaseId() {
     return localStorage.getItem(key)
   } catch {
     return null
+  }
+}
+
+export function loadOnboardingDraft() {
+  const saved = read(onboardingKey())
+  if (!saved?.answers || typeof saved.answers !== 'object') return null
+  const step = Number.isInteger(saved.step) ? saved.step : 0
+  return { answers: saved.answers, step }
+}
+
+export function saveOnboardingDraft(answers, step) {
+  return write(onboardingKey(), JSON.stringify({
+    answers,
+    step,
+    updatedAt: new Date().toISOString(),
+  }))
+}
+
+export function clearOnboardingDraft() {
+  const key = onboardingKey()
+  if (!key) return false
+  try {
+    localStorage.removeItem(key)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function loadOnboardingLater(userId) {
+  const key = laterKey(userId)
+  if (!key) return false
+  try {
+    return sessionStorage.getItem(key) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function saveOnboardingLater(userId) {
+  const key = laterKey(userId)
+  if (!key) return false
+  try {
+    sessionStorage.setItem(key, '1')
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function clearOnboardingLater(userId) {
+  const key = laterKey(userId)
+  if (!key) return false
+  try {
+    sessionStorage.removeItem(key)
+    return true
+  } catch {
+    return false
   }
 }
 

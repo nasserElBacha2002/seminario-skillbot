@@ -1,5 +1,6 @@
 import { fallbackCategories, guidedCases, guidedTools, toolUrls } from '../data/guidedCases.js'
 import { practiceChallenges, practiceFieldKeys, practiceKeys } from '../data/practiceChallenges.js'
+import { answersFromRow, groupOptions, toOnboardingParams } from './onboarding.js'
 import { isLegacySchemaError } from './schemaError.js'
 import { supabase } from './supabase'
 
@@ -36,13 +37,14 @@ const USE_CASE_BASE = `
 
 const USE_CASE_COLUMNS = `
   id, title, summary, situation, skill_id, difficulty, estimated_minutes, icon, color,
-  common_mistake, learning_outcome, xp_reward, sort_order, output_template,
+  common_mistake, learning_outcome, xp_reward, sort_order, output_template, area,
   categories:use_case_categories(is_primary, category:categories(id, name, sort_order)),
   tools:use_case_tools(role, reason, sort_order, tool:tools(id, name, url)),
   steps:use_case_steps(position, body, example_prompt, checklist, requires_confirmation, confirmation_label),
   survey:use_case_survey_tasks(position, task, mentions),
   fields:use_case_fields(id, key, label, type, placeholder, required, position, options, helper_text, in_practice),
-  challenges:use_case_challenges(position, type, title, instruction, scenario, question, feedback_correct, feedback_incorrect, xp, options:challenge_options(letter, body, is_correct, feedback))
+  challenges:use_case_challenges(position, type, title, instruction, scenario, question, feedback_correct, feedback_incorrect, xp, options:challenge_options(letter, body, is_correct, feedback)),
+  tags:use_case_tags(kind, value)
 `
 
 const LEGACY_CATEGORIES = new Set(['administracion', 'vinculacion', 'explicacion-ia', 'diseno', 'programacion'])
@@ -141,6 +143,12 @@ function withGuidance(useCases, categories, legacySchema) {
   return { useCases: resolvedCases, categories: resolvedCategories }
 }
 
+const AREA_NAMES = {
+  marketing: 'Marketing',
+  finanzas: 'Finanzas',
+  administracion: 'Administración',
+}
+
 const byKey = (key) => (a, b) => a[key] - b[key]
 
 function toUseCase(row) {
@@ -150,6 +158,8 @@ function toUseCase(row) {
   const challenges = mapChallenges(challengeRows)
   return {
     id: row.id,
+    area: row.area ?? null,
+    areaName: AREA_NAMES[row.area] ?? '',
     title: row.title,
     description: row.summary,
     situation: row.situation,
@@ -165,6 +175,9 @@ function toUseCase(row) {
     mistake: row.common_mistake,
     learning: row.learning_outcome,
     outputTemplate: row.output_template ?? '',
+    minutes: row.estimated_minutes ?? null,
+    sortOrder: row.sort_order ?? 0,
+    tags: [...(row.tags ?? [])].map((tag) => ({ kind: tag.kind, value: tag.value })),
     tools: [...row.tools].sort(byKey('sort_order')).map((x) => ({ id: x.tool.id, name: x.tool.name, role: x.role, reason: x.reason, url: x.tool?.url ?? '' })),
     steps: [...row.steps].sort(byKey('position')).map((x) => ({
       position: x.position,
@@ -201,7 +214,7 @@ export async function fetchSkillbotData() {
   const userId = await currentUserId()
   const profileQuery = supabase
     .from('profiles')
-    .select('id, display_name, initials, goal, interests, xp, level_id')
+    .select('id, display_name, initials, goal, interests, xp, level_id, created_at, onboarding_completed_at')
     .eq('id', userId)
     .maybeSingle()
     .then(({ data, error }) => {
@@ -212,7 +225,7 @@ export async function fetchSkillbotData() {
       return data
     })
 
-  const [catalogRows, categories, profile, levels, skills, userSkills, achievements, unlocked, progress, stepProgress, activity, doneChallenges] = await Promise.all([
+  const [catalogRows, categories, profile, levels, skills, userSkills, achievements, unlocked, progress, stepProgress, activity, doneChallenges, onboardingOptions, onboardingResponse] = await Promise.all([
     fetchUseCaseRows(),
     supabase.from('categories').select('id, name').order('sort_order').then(unwrap),
     profileQuery,
@@ -225,6 +238,8 @@ export async function fetchSkillbotData() {
     supabase.from('use_case_step_progress').select('use_case_id, position').eq('profile_id', userId).then(unwrap),
     supabase.from('activity_days').select('day').eq('profile_id', userId).then(unwrap),
     fetchDoneChallenges(userId),
+    supabase.from('onboarding_options').select('kind, value, label, area, sort_order').order('sort_order').then(unwrap),
+    supabase.from('onboarding_responses').select('areas, problems, tools, ai_experience, primary_goal, available_time, created_at, updated_at').eq('profile_id', userId).maybeSingle().then(unwrap),
   ])
 
   const valueBySkill = new Map(userSkills.map((x) => [x.skill_id, x.value]))
@@ -242,15 +257,34 @@ export async function fetchSkillbotData() {
     profile: {
       name: profile.display_name,
       initials: profile.initials,
-      goal: profile.goal || 'Resolver tareas concretas usando IA, sin tener que saber de antemano qué herramienta elegir.',
+      goal: profile.goal || 'Resolver problemas del emprendimiento con IA.',
       interests: profile.interests ?? [],
       xp: profile.xp,
+      createdAt: profile.created_at,
+    },
+    onboarding: {
+      completedAt: profile.onboarding_completed_at ?? null,
+      answers: answersFromRow(onboardingResponse),
+      options: groupOptions(onboardingOptions),
     },
     level: levels.find((x) => x.id === profile.level_id) ?? levels[0],
     skills: skills.map((x) => ({ ...x, value: valueBySkill.get(x.id) ?? 0 })),
     achievements: achievements.map((x) => ({ ...x, unlocked: unlockedIds.has(x.id) })),
     progress: Object.fromEntries(progress.map((x) => [x.use_case_slug, x])),
     activityDays: activity.map((x) => x.day),
+  }
+}
+
+export async function completeOnboarding(answers, previousCompletedAt = null) {
+  const row = await supabase.rpc('complete_onboarding', toOnboardingParams(answers)).then(unwrap)
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('onboarding_completed_at')
+    .eq('id', row.profile_id)
+    .maybeSingle()
+  return {
+    answers: answersFromRow(row),
+    completedAt: error ? (previousCompletedAt ?? row.created_at ?? null) : (data?.onboarding_completed_at ?? previousCompletedAt ?? row.created_at ?? null),
   }
 }
 

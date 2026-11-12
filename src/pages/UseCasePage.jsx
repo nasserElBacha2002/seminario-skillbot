@@ -7,7 +7,7 @@ import { DynamicCaseForm } from '../components/DynamicCaseForm'
 import { Layout } from '../components/Layout'
 import { closingLine, PracticeRound } from '../components/PracticeRound'
 import { useSkillbotData } from '../context/SkillbotData'
-import { nextChallengeIndex, practiceFieldsOf, resumePractice } from '../lib/practice'
+import { isPracticeReady, nextChallengeIndex, practiceFieldsOf, resumePractice } from '../lib/practice'
 import { fillTemplate, unresolvedPlaceholders } from '../lib/template'
 import { clearSession, loadDraft, loadResult, loadSession, rememberCase, saveResult, saveSession } from '../lib/storage'
 
@@ -46,7 +46,7 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
   const [resultText, setResultText] = useState('')
   const [situation, setSituation] = useState('')
   const [saveError, setSaveError] = useState(null)
-  const ready = practiceFields.length > 0 && challenges.length === 3 && Boolean(useCase.outputTemplate)
+  const ready = isPracticeReady(useCase)
 
   useEffect(() => {
     rememberCase(useCase.id)
@@ -160,7 +160,7 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
         <div className={`case-heading${compact ? ' case-heading-compact' : ''}${hideTitle ? ' case-heading-result' : ''}`}>
           <span className={`hero-tool-icon tool-icon ${useCase.color}`}><Icon size={28} /></span>
           <div>
-            <p className="case-kicker">{useCase.category}</p>
+            {useCase.areaName && <p className="case-kicker">{useCase.areaName}</p>}
             <h1>{useCase.title}</h1>
             <p>{useCase.description}</p>
             <p className="case-facts">{useCase.estimatedTime} · Dificultad {String(useCase.difficulty).toLocaleLowerCase('es')}</p>
@@ -184,7 +184,11 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
                 )}
               </div>
             ) : (
-              <p className="save-error">Este caso todavía no tiene la práctica armada.</p>
+              <article className="ficha-note">
+                <p className="case-kicker">Ficha</p>
+                <p>Este caso explica el problema y cómo encararlo con IA. No incluye una práctica con desafíos.</p>
+                {useCase.mistake && <p><b>Error frecuente:</b> {useCase.mistake}</p>}
+              </article>
             )}
             {saveError && <p className="save-error" role="alert">{saveError.message}</p>}
           </>

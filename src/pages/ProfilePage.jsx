@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { ChevronRight, KeyRound, LoaderCircle, LogOut, Mail, Pencil } from 'lucide-react'
 import { Layout } from '../components/Layout'
+import { OnboardingWizard } from '../components/OnboardingWizard'
 import { isReauthenticationError, useAuth } from '../context/Auth'
 import { useSkillbotData } from '../context/SkillbotData'
+import { optionLabels } from '../lib/onboarding'
 
 const MIN_PASSWORD = 8
 
@@ -154,8 +156,44 @@ function PasswordForm({ onCancel }) {
   )
 }
 
+function PreferenceSummary({ onboarding, onEdit }) {
+  const answers = onboarding?.answers
+  const options = onboarding?.options
+  const done = Boolean(onboarding?.completedAt)
+  const groups = done && answers ? [
+    ['Áreas', optionLabels(options, 'area', answers.areas)],
+    ['Dificultades', optionLabels(options, 'problem', answers.problems)],
+    ['Herramientas', optionLabels(options, 'tool', answers.tools)],
+    ['Experiencia con IA', optionLabels(options, 'experience', answers.aiExperience)],
+    ['Primer resultado', optionLabels(options, 'goal', answers.primaryGoal)],
+    ['Tiempo por sesión', optionLabels(options, 'time', answers.availableTime)],
+  ] : []
+
+  return (
+    <>
+      <p className="eyebrow">TUS PREFERENCIAS</p>
+      <h2>{done ? 'Cómo querés usar SkillBot' : 'Todavía no completaste el cuestionario'}</h2>
+      {done ? (
+        <div className="preference-groups">
+          {groups.map(([label, values]) => (
+            <div key={label}>
+              <h3>{label}</h3>
+              <div className="interest-list">{values.map((value) => <span key={value}>{value}</span>)}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="preference-empty">Tus respuestas sirven para las recomendaciones. Tu progreso y tu XP siguen igual.</p>
+      )}
+      <button type="button" className="secondary preference-edit" onClick={onEdit}>
+        {done ? 'Editar respuestas' : 'Completar cuestionario'}
+      </button>
+    </>
+  )
+}
+
 export function ProfilePage({ setPage }) {
-  const { data } = useSkillbotData()
+  const { data, saveOnboarding } = useSkillbotData()
   const { user, signOut } = useAuth()
   const [panel, setPanel] = useState('menu')
   const [error, setError] = useState('')
@@ -183,6 +221,22 @@ export function ProfilePage({ setPage }) {
             <p><span /> {data.level.name} · {data.profile.xp} XP</p>
           </div>
         </div>
+        <article className={`preference-card${panel === 'preferences' ? ' editing' : ''}`}>
+          {panel === 'preferences' ? (
+            <OnboardingWizard
+              mode="edit"
+              options={data.onboarding?.options}
+              serverAnswers={data.onboarding?.answers}
+              onSubmit={async (answers) => {
+                await saveOnboarding(answers)
+                setPanel('menu')
+              }}
+              onCancel={() => setPanel('menu')}
+            />
+          ) : (
+            <PreferenceSummary onboarding={data.onboarding} onEdit={() => setPanel('preferences')} />
+          )}
+        </article>
         <div className="profile-grid">
           <article>
             <p className="eyebrow">SOBRE VOS</p>

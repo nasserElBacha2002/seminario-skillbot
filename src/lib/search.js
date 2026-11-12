@@ -11,7 +11,7 @@ const SYNONYM_GROUPS = [
   ['mail', 'email', 'correo', 'mails', 'correos'],
   ['estudiar', 'estudio', 'examen', 'parcial', 'certificacion', 'pdf'],
   ['resumen', 'resumir', 'resumime', 'sintesis'],
-  ['imagen', 'imagenes', 'foto', 'fotos', 'instagram', 'redes'],
+  ['imagen', 'imagenes', 'foto', 'fotos', 'redes'],
   ['reunion', 'minuta', 'seguimiento', 'acta'],
   ['automatizar', 'automatizacion', 'script', 'macro', 'macros'],
 ]

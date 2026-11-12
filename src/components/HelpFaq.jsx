@@ -1,8 +1,8 @@
 import { FileText, ListChecks, Search, ShieldCheck, Target } from 'lucide-react'
 
 const howItWorks = [
-  [Search, 'Elegí un caso', 'Buscá una tarea parecida a la tuya o arrancá por el caso del día.'],
-  [ListChecks, 'Seguí la guía', 'Te recomendamos una herramienta y marcás los pasos a medida que los hacés.'],
+  [Search, 'Elegí un caso', 'Buscá un problema de tu emprendimiento o arrancá por el caso del día.'],
+  [ListChecks, 'Seguí la guía', 'Si el caso tiene práctica, marcás los pasos a medida que los hacés.'],
   [FileText, 'Armá el pedido', 'Completás unos datos y SkillBot arma el pedido para copiarlo en la IA.'],
   [Target, 'Resolvé los desafíos', 'Tres preguntas cortas para practicar. Ahí se gana el XP.'],
 ]
@@ -12,8 +12,8 @@ const topics = [
     id: 'uso',
     title: 'Usar SkillBot',
     questions: [
-      ['¿Qué es un caso de uso?', 'Es una tarea cotidiana que se puede resolver con IA, como ordenar una planilla o resumir un PDF. Cada caso trae la situación, la herramienta recomendada, los pasos y el error más común.'],
-      ['¿Cómo encuentro un caso para lo que necesito?', 'Usá el buscador de Inicio o de Explorar y escribí la tarea con tus palabras, por ejemplo "resumir un pdf para el parcial". También podés filtrar por categoría.'],
+      ['¿Qué es un caso de uso?', 'Es un problema concreto del emprendimiento que se puede encarar con IA, en Marketing, Finanzas o Administración. Cada caso trae la situación y el error más común. Algunos, además, tienen una práctica guiada.'],
+      ['¿Cómo encuentro un caso para lo que necesito?', 'En Explorar, escribí el problema con tus palabras y filtrá por Marketing, Finanzas o Administración. Todas muestra el catálogo completo.'],
       ['¿Puedo dejar un caso a la mitad?', 'Sí. Tu avance queda guardado y en Inicio aparece "Seguí donde quedaste" para retomarlo.'],
       ['¿Por qué el desafío está bloqueado?', 'Se habilita cuando completás los pasos del caso.'],
     ],

@@ -12,7 +12,7 @@ export function AuthLayout({ children }) {
           <p>Decinos qué necesitás resolver. Te armamos un pedido listo para usar con IA.</p>
         </div>
         <div className="login-art">
-          <div className="art-card a"><Bot size={28} /><b>Resolvé</b><small>una tarea concreta</small></div>
+          <div className="art-card a"><Bot size={28} /><b>Resolvé</b><small>un problema del negocio</small></div>
           <div className="art-card b"><Sparkles size={24} /><b>Llevate</b><small>un pedido listo</small></div>
           <div className="art-orb"><Zap size={33} fill="currentColor" /></div>
           <i className="line l1" /><i className="line l2" />

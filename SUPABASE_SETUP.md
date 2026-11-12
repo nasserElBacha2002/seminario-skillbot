@@ -45,6 +45,8 @@ Reiniciar `npm run dev` después de cambiar `.env.local`. Vite lee las variables
 | `supabase/migrations/20261027150000_update_profile_name.sql` | Fase 4: RPC `update_profile_name` para `display_name` + `initials`. No otorga `UPDATE` de tabla sobre `profiles`. |
 | `supabase/migrations/20261027160000_harden_update_profile_name.sql` | Post review Fase 4: `update_profile_name` queda con `search_path = ''` y referencias calificadas. |
 
+La infraestructura de onboarding está en `supabase/migrations/20261103120000_onboarding_model.sql`. El procedimiento para aplicarla, el vocabulario y las políticas están en la sección 15. Esa migración no usa `update_profile_name` ni `complete_practice_challenge`, y no da por cerrada la deuda de Auth descrita en el resto de este archivo.
+
 Las migraciones anteriores siguen siendo necesarias si el proyecto se levanta desde cero. Orden:
 
 1. `20261006232500_init_skillbot.sql`
@@ -443,3 +445,181 @@ Datos afectados al aplicar la migración:
 - [ ] Bloqueo de UPDATE directo de XP en `profiles`.
 - [ ] Bloqueo de escrituras directas de progreso fuera de RPC.
 - [ ] Progreso normal (resolver caso / challenge) vía RPC.
+
+## 15. Fase 1 — Onboarding, áreas y etiquetas
+
+Migración nueva, aditiva: `supabase/migrations/20261103120000_onboarding_model.sql`.
+
+No modifica migraciones anteriores ni las funciones de Auth. La Fase 0 informó cinco archivos ausentes. En esta copia de trabajo están trackeados por git y el arranque local los aplica; no se editaron en esta fase y no se consultó si el proyecto remoto ya los corrió:
+
+- `20261027130000_profile_initials.sql`
+- `20261027140000_secure_progress_writes.sql`
+- `20261027150000_update_profile_name.sql`
+- `20261027160000_harden_update_profile_name.sql`
+- `20261027210000_help_community_auth.sql`
+
+`20261103120000` no llama a `update_profile_name` ni a `complete_practice_challenge`. Si el remoto no tiene `20261027140000`, `authenticated` sigue con `UPDATE` sobre `profiles`: el trigger de esta migración igual impide cambiar `onboarding_completed_at`. Si el remoto ya revocó ese `UPDATE`, la RPC sigue pudiendo escribir la marca porque es `security definer`.
+
+### Orden local
+
+1. `20261006232500_init_skillbot.sql`
+2. `20261012230000_use_case_catalog.sql`
+3. `20261020210000_guided_resolution.sql`
+4. `20261020223000_resolve_use_case.sql`
+5. `20261021010000_practice_challenges.sql`
+6. `20261021020000_award_xp_on_correct.sql`
+7. `20261027120000_supabase_auth.sql`
+8. `20261027130000_profile_initials.sql`
+9. `20261027140000_secure_progress_writes.sql`
+10. `20261027150000_update_profile_name.sql`
+11. `20261027160000_harden_update_profile_name.sql`
+12. `20261027200000_help_community.sql`
+13. `20261027210000_help_community_auth.sql`
+14. `20261103120000_onboarding_model.sql`
+15. `supabase/seed.sql`
+
+`20261012230000` y `20261027120000` borran progreso o perfiles huérfanos. No hay que volver a ejecutarlas a mano sobre una base con usuarios. La migración de onboarding no las invoca y no repite esos `DELETE`.
+
+### Cómo aplicarla
+
+Instalación local limpia, sin cuentas que haya que conservar:
+
+```bash
+supabase start
+supabase db reset
+```
+
+`db reset` sin `--linked` recrea solo la base local de Docker y después corre `supabase/seed.sql`.
+
+Base remota, o cualquier base que ya tenga usuarios:
+
+```bash
+supabase db push
+```
+
+Eso aplica únicamente las migraciones pendientes. No usar `supabase db reset` ni `supabase db reset --linked` contra el proyecto remoto. No pegar en el SQL Editor las migraciones históricas que borran perfiles. Si la base remota no tiene el esquema de las ocho migraciones presentes, esta migración no lo reconstruye: hay que revisar ese entorno aparte, sin inventar las cinco migraciones ausentes.
+
+Si `20261103120000_onboarding_model.sql` se pega a mano en el SQL Editor, se puede volver a ejecutar: no dropea tablas de usuario y el vocabulario se actualiza con `on conflict`. No reejecutar por eso el resto del historial.
+
+### Tablas y columnas
+
+`public.onboarding_options` guarda el vocabulario. Lectura pública. Sin `INSERT`, `UPDATE` ni `DELETE` para `anon` ni `authenticated`. Una opción nueva de las clases ya previstas se agrega con un `INSERT` en una migración posterior. `kind` y `value` no se pueden renombrar. No se puede borrar una opción que ya esté en una respuesta, en un caso o en una etiqueta.
+
+`public.onboarding_responses` guarda una fila por usuario:
+
+| Columna | Tipo | Vocabulario |
+|---|---|---|
+| `profile_id` | `uuid` PK, FK a `profiles(id)` `on delete cascade` | — |
+| `areas` | `text[]` | `area` |
+| `problems` | `text[]` | `problem` |
+| `tools` | `text[]` | `tool` |
+| `ai_experience` | `text` | `experience` |
+| `primary_goal` | `text` | `goal` |
+| `available_time` | `text` | `time` |
+| `created_at`, `updated_at` | `timestamptz` | — |
+
+Los tres arrays tienen al menos un identificador, no repiten valores, no superan 64 elementos y no aceptan `null`. `ninguna` no se combina con otra herramienta. Una respuesta puede mezclar áreas y problemas de Marketing, Finanzas y Administración: no hay un perfil por categoría ni una regla que ate cada problema al área elegida.
+
+`profiles.onboarding_completed_at` queda `null` en los usuarios que ya existen y en los que crea `handle_new_user`. El trigger de alta no se modificó.
+
+`use_cases.area` es `text null`. Los valores iniciales son `marketing`, `finanzas` y `administracion`. La migración deja `null` en los casos que ya existían; el seed después asigna área a los originales, salvo `estudiar-material`, que sirve para cualquiera. `categories` y `use_case_categories` siguen en el esquema por compatibilidad. Explorar no las muestra como filtro.
+
+`use_case_tags` tiene clave primaria `(use_case_id, kind, value)`. `use_case_id` es `text` porque esa es la clave de `use_cases`. `kind` admite `problem`, `goal`, `area`, `tool`, `experience` y `time`. El valor tiene que existir en `onboarding_options` para esa clase. Un caso puede tener varias etiquetas de la misma clase.
+
+### Consistencia de la marca
+
+La escritura prevista es la RPC `complete_onboarding(p_areas, p_problems, p_tools, p_ai_experience, p_primary_goal, p_available_time)`. No recibe un id de perfil: usa `auth.uid()`. Es `security definer` con `search_path` vacío.
+
+Un `insert` o `update` directo de la propia fila también es válido y pasa por el mismo trigger. En los dos caminos ocurre esto, dentro de una sola transacción:
+
+1. Se rechaza la fila si algún valor no está en el vocabulario.
+2. Se hace el `upsert` de `onboarding_responses`.
+3. Si `onboarding_completed_at` era `null`, pasa a `now()`. Si ya tenía valor, se conserva: es la primera finalización, no la última edición. `updated_at` de la respuesta sí cambia.
+
+Si el paso 3 no encuentra el perfil, la transacción entera vuelve atrás. No queda una respuesta sin marca ni una marca nueva sin respuesta. No hay estado de borrador en la base: hasta que las seis respuestas son válidas, no se guarda nada. Un borrador de interfaz, si la Fase 3 lo necesita, queda en el cliente.
+
+`anon` y `authenticated` no pueden cambiar `onboarding_completed_at` con un `update` directo de `profiles`. Esta migración no agrega `UPDATE` sobre esa tabla. Donde `20261027140000` ya corrió, `authenticated` solo tiene `SELECT` sobre `profiles`. Donde no corrió, el `UPDATE` de `20261027120000` sigue activo y el trigger nuevo igual rechaza un cambio de esta columna.
+
+Borrar la fila de respuestas, algo que el cliente no puede hacer, limpia la marca. Si el perfil se borra y la respuesta cae por `on delete cascade`, esa limpieza no impide el borrado de la cuenta.
+
+### RLS y permisos
+
+| Objeto | `anon` | `authenticated` |
+|---|---|---|
+| `onboarding_options` | `SELECT` | `SELECT` |
+| `onboarding_responses` | sin acceso | `SELECT`, `INSERT` y `UPDATE` solo si `profile_id = auth.uid()`. Sin `DELETE` |
+| `use_case_tags` | `SELECT` | `SELECT` |
+| `complete_onboarding` | sin `EXECUTE` | `EXECUTE` |
+| `profiles.onboarding_completed_at` | no escribe | no la puede cambiar por `UPDATE` directo |
+
+No se agregaron políticas sobre `use_case_progress` ni sobre el resto de las tablas de progreso. Las etiquetas no contienen datos de usuario. El rol de servicio y el SQL Editor siguen pasando por encima de RLS, igual que en el resto del proyecto; la app no usa la `service_role`.
+
+### Vocabulario
+
+Los identificadores son la clave estable. `label` es el texto para mostrar.
+
+Áreas: `marketing`, `finanzas`, `administracion`.
+
+Problemas de Marketing: `atraer_clientes`, `explicar_oferta`, `publicar_en_redes`, `crear_contenido`, `medir_resultados`, `responder_consultas`.
+
+Problemas de Finanzas: `controlar_gastos`, `armar_precios`, `cobrar_a_tiempo`, `proyectar_caja`, `entender_ventas`, `ordenar_comprobantes`.
+
+Problemas de Administración: `organizar_tareas`, `hacer_seguimiento`, `documentar_procesos`, `coordinar_pendientes`, `atender_clientes`, `preparar_reuniones`.
+
+Problemas que no pertenecen a una sola área: `ahorrar_tiempo_repetitivo`, `decidir_con_informacion`, `empezar_sin_experiencia`.
+
+Objetivos: `conseguir_clientes`, `ordenar_finanzas`, `ahorrar_tiempo`, `mejorar_comunicacion`, `tomar_decisiones`, `ordenar_operacion`.
+
+Herramientas: `chatgpt`, `claude`, `gemini`, `copilot`, `notebooklm`, `canva`, `excel`, `google_sheets`, `whatsapp`, `instagram`, `calendario`, `ninguna`.
+
+Canva en el catálogo de `tools` sigue siendo `diseno`. En el onboarding el identificador es `canva`. Las etiquetas de matching tienen que usar `canva`, no `diseno`.
+
+Experiencia: `nunca`, `alguna_vez`, `seguido`, `en_el_negocio`.
+
+Tiempo: `menos_15`, `de_15_a_30`, `de_30_a_60`, `mas_de_60`. Esas franjas quedan definidas para compararlas después con `use_cases.estimated_minutes` (`<= 15`, `<= 30`, `<= 60` y cualquier duración). Esta migración no hace esa comparación.
+
+Para leer las opciones desde el cliente, cuando exista la pantalla:
+
+```sql
+select kind, value, label, area, sort_order
+from public.onboarding_options
+order by kind, sort_order;
+```
+
+### Verificación
+
+Después de aplicar la migración, en la base local:
+
+```sql
+select id, area from public.use_cases order by sort_order;
+select column_name
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'profiles'
+  and column_name = 'onboarding_completed_at';
+select kind, count(*) from public.onboarding_options group by kind order by kind;
+```
+
+Esperado: los ocho casos siguen publicados y con `area` nula; la columna nueva existe; el vocabulario tiene 3 áreas, 21 problemas, 6 objetivos, 12 herramientas, 4 experiencias y 4 tiempos.
+
+Con dos usuarios de Auth, como cada uno:
+
+- `complete_onboarding` guarda su fila y deja `onboarding_completed_at` distinta de `null`.
+- El otro usuario no puede leer esa fila.
+- `anon` puede leer `onboarding_options` y `use_case_tags`, y no puede leer `onboarding_responses`.
+- Un valor fuera del vocabulario rechaza la operación y no mueve la marca.
+- Volver a guardar cambia `updated_at` y conserva la marca original.
+- Un `update` directo de `onboarding_completed_at` falla.
+- `use_case_progress` de esa cuenta queda igual.
+
+### Estado después de las Fases 2 y 3
+
+La app llama `complete_onboarding` y lee `area`, `onboarding_options`, `onboarding_responses` y `use_case_tags` en la misma carga del catálogo. El seed publica 53 casos. Los 45 nuevos tienen etiquetas de `onboarding_options`. Los ocho originales también tienen etiquetas y, salvo `estudiar-material`, área. En una base que ya tenía el seed anterior alcanza con correr el último bloque de `seed.sql` (el que empieza con el comentario "Area y etiquetas de matching"). El ranking se calcula en el cliente con `rankUseCases` y no se persiste. No hay una RPC ni una tabla de recomendaciones.
+
+`npm test` cubre la definición de práctica, el progreso, el caso del día, la búsqueda y el cuestionario. No reemplaza una prueba de dos usuarios contra una base.
+
+### Limitaciones
+
+- Agregar una quinta clase de etiqueta exige cambiar el `check` de `kind`. Agregar un valor de una clase existente no.
+- No se modificó Auth, el centro de ayuda ni las políticas históricas de progreso.
+- `onboarding_completed_at` no se escribe desde el cliente. Lo fija el trigger de `onboarding_responses`.

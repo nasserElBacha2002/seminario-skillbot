@@ -1,38 +1,39 @@
 import { useMemo, useState } from 'react'
 import { useSkillbotData } from '../context/SkillbotData'
+import { BUSINESS_AREAS } from '../lib/matching'
 import { searchUseCases } from '../lib/search'
 import { SearchBar } from './SearchBar'
 import { UseCaseCard } from './UseCaseCard'
 
-export function CaseBrowser({ onOpen, searchId }) {
+export function CaseBrowser({ onOpen, searchId, area = 'todos', onAreaChange }) {
   const { data } = useSkillbotData()
-  const [filter, setFilter] = useState('todos')
   const [term, setTerm] = useState('')
-  const filters = [{ id: 'todos', name: 'Todos' }, ...data.categories]
+  const areas = [{ id: 'todos', label: 'Todas' }, ...BUSINESS_AREAS]
   const shown = useMemo(() => {
     const found = searchUseCases(data.useCases, term)
-    if (filter === 'todos') return found
-    return found.filter((item) => item.categoryIds.includes(filter))
-  }, [data.useCases, term, filter])
+    if (area === 'todos') return found
+    return found.filter((item) => item.area === area)
+  }, [data.useCases, term, area])
   const suggestions = useMemo(
     () => [...data.useCases].sort((a, b) => b.demand - a.demand).slice(0, 3),
     [data.useCases],
   )
-  const searching = term.trim().length > 0 || filter !== 'todos'
+  const searching = term.trim().length > 0
 
   return (
     <div className="case-browser">
       <SearchBar id={searchId} value={term} onChange={setTerm} />
-      <div className="filters" role="group" aria-label="Filtrar por tipo de tarea">
-        {filters.map((item) => (
+      <p className="filter-label" id={`${searchId}-areas`}>Área del negocio</p>
+      <div className="filters" role="group" aria-labelledby={`${searchId}-areas`}>
+        {areas.map((item) => (
           <button
             key={item.id}
             type="button"
-            className={filter === item.id ? 'selected' : ''}
-            aria-pressed={filter === item.id}
-            onClick={() => setFilter(item.id)}
+            className={area === item.id ? 'selected' : ''}
+            aria-pressed={area === item.id}
+            onClick={() => onAreaChange?.(item.id)}
           >
-            {item.name}
+            {item.label}
           </button>
         ))}
       </div>
@@ -43,9 +44,9 @@ export function CaseBrowser({ onOpen, searchId }) {
       ) : (
         <div className="empty-results" role="status">
           <h2>No encontramos un caso exactamente para eso.</h2>
-          <p>Probá con palabras más cortas, como presentación, excel o mail.</p>
+          <p>Probá con otra área o con palabras más cortas, como presentación, excel o mail.</p>
           {searching && (
-            <button type="button" className="secondary" onClick={() => { setTerm(''); setFilter('todos') }}>
+            <button type="button" className="secondary" onClick={() => setTerm('')}>
               Limpiar búsqueda
             </button>
           )}

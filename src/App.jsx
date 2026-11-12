@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { AuthProvider, useAuth } from './context/Auth'
 import { SkillbotDataProvider, useSkillbotData } from './context/SkillbotData'
 import { Boot, BootError } from './components/Boot'
-import { rememberCase } from './lib/storage'
+import { OnboardingWizard } from './components/OnboardingWizard'
+import { canPostponeOnboarding } from './lib/onboarding'
+import { loadOnboardingLater, rememberCase, saveOnboardingLater } from './lib/storage'
 import { ExplorePage } from './pages/ExplorePage'
 import { HelpPage } from './pages/HelpPage'
 import { HomePage } from './pages/HomePage'
@@ -17,6 +19,7 @@ function Shell() {
   const [caseId, setCaseId] = useState(null)
   const [origin, setOrigin] = useState('inicio')
   const [askCaseId, setAskCaseId] = useState(null)
+  const [areaFilter, setAreaFilter] = useState('todos')
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -35,19 +38,59 @@ function Shell() {
     setAskCaseId(id)
     setPage('ayuda')
   }
+  const openExplore = (area = 'todos') => {
+    setAreaFilter(area)
+    setPage('explorar')
+  }
   const useCase = data.useCases.find((item) => item.id === caseId)
   if ((page === 'detalle' || page === 'desafio') && !useCase) {
-    return <ExplorePage setPage={setPage} openCase={openCase} />
+    return <ExplorePage setPage={setPage} openCase={openCase} area={areaFilter} onAreaChange={setAreaFilter} />
   }
 
-  if (page === 'inicio') return <HomePage setPage={setPage} openCase={openCase} />
-  if (page === 'explorar') return <ExplorePage setPage={setPage} openCase={openCase} />
+  if (page === 'inicio') return <HomePage setPage={setPage} openCase={openCase} onExplore={openExplore} />
+  if (page === 'explorar') return <ExplorePage setPage={setPage} openCase={openCase} area={areaFilter} onAreaChange={setAreaFilter} />
   if (page === 'detalle' || page === 'desafio') return <UseCasePage setPage={setPage} useCase={useCase} origin={origin} onAsk={askCommunity} />
   if (page === 'progreso') return <ProgressPage setPage={setPage} />
   if (page === 'ayuda') {
     return <HelpPage setPage={setPage} openCase={openCase} askCaseId={askCaseId} clearAsk={() => setAskCaseId(null)} />
   }
   return <ProfilePage setPage={setPage} />
+}
+
+function Entry() {
+  const { user } = useAuth()
+  const { data, loading, error, reload, saveOnboarding } = useSkillbotData()
+  const [later, setLater] = useState(() => loadOnboardingLater(user?.id))
+
+  useEffect(() => {
+    setLater(loadOnboardingLater(user?.id))
+  }, [user?.id])
+
+  if (error) return <BootError error={error} onRetry={reload} />
+  if (loading || !data) return <Boot />
+  if (data.onboarding?.completedAt || later) return <Shell />
+
+  const allowLater = canPostponeOnboarding({
+    profile: data.profile,
+    progress: data.progress,
+    activityDays: data.activityDays,
+    achievements: data.achievements,
+  })
+
+  return (
+    <OnboardingWizard
+      key={user?.id}
+      mode="start"
+      options={data.onboarding?.options}
+      serverAnswers={data.onboarding?.answers}
+      allowLater={allowLater}
+      onSubmit={saveOnboarding}
+      onLater={() => {
+        saveOnboardingLater(user?.id)
+        setLater(true)
+      }}
+    />
+  )
 }
 
 function Gate() {
@@ -57,7 +100,7 @@ function Gate() {
   if (passwordRecovery || !session) return <AuthFlow />
   return (
     <SkillbotDataProvider>
-      <Shell />
+      <Entry />
     </SkillbotDataProvider>
   )
 }

@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from './context/Auth'
 import { SkillbotDataProvider, useSkillbotData } from './context/SkillbotData'
 import { Boot, BootError } from './components/Boot'
 import { OnboardingWizard } from './components/OnboardingWizard'
-import { canPostponeOnboarding } from './lib/onboarding'
+import { canPostponeOnboarding, mustCompleteOnboarding } from './lib/onboarding'
 import { loadOnboardingLater, rememberCase, saveOnboardingLater } from './lib/storage'
 import { ExplorePage } from './pages/ExplorePage'
 import { HelpPage } from './pages/HelpPage'
@@ -68,7 +68,7 @@ function Entry() {
 
   if (error) return <BootError error={error} onRetry={reload} />
   if (loading || !data) return <Boot />
-  if (data.onboarding?.completedAt || later) return <Shell />
+  if (later || !mustCompleteOnboarding(data.onboarding)) return <Shell />
 
   const allowLater = canPostponeOnboarding({
     profile: data.profile,

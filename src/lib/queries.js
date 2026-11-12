@@ -1,6 +1,6 @@
 import { fallbackCategories, guidedCases, guidedTools, toolUrls } from '../data/guidedCases.js'
 import { practiceChallenges, practiceFieldKeys, practiceKeys } from '../data/practiceChallenges.js'
-import { answersFromRow, groupOptions, toOnboardingParams } from './onboarding.js'
+import { answersFromRow, groupOptions, onboardingState, toOnboardingParams } from './onboarding.js'
 import { isLegacySchemaError } from './schemaError.js'
 import { supabase } from './supabase'
 
@@ -263,8 +263,7 @@ export async function fetchSkillbotData() {
       createdAt: profile.created_at,
     },
     onboarding: {
-      completedAt: profile.onboarding_completed_at ?? null,
-      answers: answersFromRow(onboardingResponse),
+      ...onboardingState(profile.onboarding_completed_at ?? null, onboardingResponse),
       options: groupOptions(onboardingOptions),
     },
     level: levels.find((x) => x.id === profile.level_id) ?? levels[0],

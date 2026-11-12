@@ -4,6 +4,9 @@ import {
   STEPS,
   answersFromRow,
   canPostponeOnboarding,
+  hasOnboardingAnswers,
+  mustCompleteOnboarding,
+  onboardingState,
   emptyAnswers,
   problemGroups,
   sanitizeAnswers,
@@ -104,6 +107,25 @@ test('una fila de Supabase vuelve como objeto de preferencias', () => {
   assert.equal(answers.primaryGoal, 'conseguir_clientes')
   assert.equal(answers.availableTime, 'de_30_a_60')
   assert.equal(answersFromRow(null), null)
+})
+
+test('una marca sin respuestas no cuenta como cuestionario hecho', () => {
+  const row = {
+    areas: ['marketing'],
+    problems: ['atraer_clientes'],
+    tools: ['instagram'],
+    ai_experience: 'alguna_vez',
+    primary_goal: 'conseguir_clientes',
+    available_time: 'de_30_a_60',
+    updated_at: '2026-11-07T12:00:00Z',
+  }
+  assert.equal(hasOnboardingAnswers(null), false)
+  assert.deepEqual(onboardingState('2026-11-01T00:00:00Z', null), { completedAt: null, answers: null })
+  const saved = onboardingState(null, row)
+  assert.equal(saved.completedAt, '2026-11-07T12:00:00Z')
+  assert.equal(saved.answers.areas[0], 'marketing')
+  assert.equal(mustCompleteOnboarding({ completedAt: '2026-11-01T00:00:00Z', answers: null }), true)
+  assert.equal(mustCompleteOnboarding(saved), false)
 })
 
 test('posponer no equivale a completar: solo cuentas con historia o de más de un día', () => {

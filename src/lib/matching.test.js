@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { hasRecommendationInput, rankUseCases } from './matching.js'
+import { hasRecommendationInput, rankUseCases, selectRecommendations } from './matching.js'
 
 const options = {
   area: [
@@ -285,4 +285,55 @@ test('el mismo perfil produce el mismo orden', () => {
     availableTime: 'de_30_a_60',
   })
   assert.deepEqual(rankUseCases(profile, catalog, options), rankUseCases(profile, catalog, options))
+})
+
+const gastos = [{ kind: 'problem', value: 'controlar_gastos' }]
+const gastosYObjetivo = [...gastos, { kind: 'goal', value: 'ordenar_finanzas' }]
+
+test('una práctica que coincide con un problema entra al inicio y va primero sin cambiar el puntaje', () => {
+  const ranking = rankUseCases(answers({ areas: ['finanzas'], problems: ['controlar_gastos'], primaryGoal: 'ordenar_finanzas' }), [
+    ...Array.from({ length: 6 }, (_, index) => useCase({ id: `ficha-${index}`, area: 'finanzas', sortOrder: index, tags: gastosYObjetivo })),
+    useCase({ id: 'practica', sortOrder: 20, practice: true, tags: gastos }),
+  ], options)
+  const practice = find(ranking, 'practica')
+  assert.equal(practice.position, 7)
+
+  const selected = selectRecommendations(ranking)
+  assert.equal(selected.length, 6)
+  assert.equal(selected[0], practice)
+  assert.deepEqual(selected.slice(1).map((item) => item.id), ['ficha-0', 'ficha-1', 'ficha-2', 'ficha-3', 'ficha-4'])
+  assertScore(selected[0])
+})
+
+test('una práctica que solo comparte área, herramienta o tiempo no se adelanta', () => {
+  const ranking = rankUseCases(answers({ areas: ['finanzas'], problems: ['controlar_gastos'], tools: ['excel'], availableTime: 'de_30_a_60' }), [
+    ...Array.from({ length: 6 }, (_, index) => useCase({ id: `ficha-${index}`, sortOrder: index, tags: gastos })),
+    useCase({ id: 'practica', area: 'finanzas', sortOrder: 20, practice: true, tags: [{ kind: 'tool', value: 'excel' }] }),
+  ], options)
+  const selected = selectRecommendations(ranking)
+  assert.ok(find(ranking, 'practica').score > 0)
+  assert.equal(find(selected, 'practica'), undefined)
+})
+
+test('las prácticas ocupan como mucho la mitad y el resto sigue el puntaje', () => {
+  const ranking = rankUseCases(answers({ problems: ['controlar_gastos'], primaryGoal: 'ordenar_finanzas' }), [
+    ...Array.from({ length: 3 }, (_, index) => useCase({ id: `ficha-${index}`, sortOrder: index, tags: gastosYObjetivo })),
+    ...Array.from({ length: 5 }, (_, index) => useCase({ id: `practica-${index}`, sortOrder: 10 + index, practice: true, tags: gastos })),
+  ], options)
+  const selected = selectRecommendations(ranking)
+  assert.deepEqual(selected.map((item) => item.id), ['practica-0', 'practica-1', 'practica-2', 'ficha-0', 'ficha-1', 'ficha-2'])
+
+  const more = selectRecommendations(ranking, { practiceSlots: 6 })
+  assert.equal(more.filter((item) => item.practiceReady).length, 5)
+})
+
+test('la selección no incluye casos sin puntaje ni pasa el límite', () => {
+  const ranking = rankUseCases(answers({ problems: ['controlar_gastos'] }), [
+    useCase({ id: 'practica', practice: true, tags: gastos }),
+    useCase({ id: 'sin-coincidencia', practice: true }),
+    useCase({ id: 'ficha', tags: gastos }),
+  ], options)
+  assert.deepEqual(selectRecommendations(ranking).map((item) => item.id), ['practica', 'ficha'])
+  assert.deepEqual(selectRecommendations(ranking, { limit: 1 }).map((item) => item.id), ['practica'])
+  assert.deepEqual(selectRecommendations(null), [])
 })

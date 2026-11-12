@@ -1,7 +1,7 @@
 import { ArrowRight, MessagesSquare, Search } from 'lucide-react'
 import { useSkillbotData } from '../context/SkillbotData'
 import { caseOfTheDay } from '../lib/daily'
-import { BUSINESS_AREAS, primaryReason, recommendationText } from '../lib/matching'
+import { BUSINESS_AREAS, primaryReason, recommendationText, selectRecommendations } from '../lib/matching'
 import { Layout } from '../components/Layout'
 import { UseCaseCard } from '../components/UseCaseCard'
 import { caseIcon } from '../components/icons'
@@ -22,9 +22,7 @@ function completedCases(useCases, progress) {
 export function HomePage({ setPage, openCase, onExplore }) {
   const { data, recommendations, personalized } = useSkillbotData()
   const byId = new Map(data.useCases.map((item) => [item.id, item]))
-  const recommended = personalized
-    ? recommendations.filter((item) => item.score > 0).slice(0, 6)
-    : []
+  const recommended = personalized ? selectRecommendations(recommendations) : []
   const daily = caseOfTheDay(data.useCases)
   const DailyIcon = daily ? caseIcon(daily) : null
   const started = startedCases(data.useCases, data.progress)
@@ -59,7 +57,11 @@ export function HomePage({ setPage, openCase, onExplore }) {
             <div className="section-heading">
               <div>
                 <h2>Recomendado para vos</h2>
-                <p>Los seis casos que mejor coinciden con lo que marcaste.</p>
+                <p>
+                  {recommended.some((entry) => entry.practiceReady)
+                    ? 'Primero los que podés practicar acá. Después, otros casos que coinciden con lo que marcaste.'
+                    : 'Los casos que mejor coinciden con lo que marcaste.'}
+                </p>
               </div>
             </div>
             {recommended.length > 0 ? (

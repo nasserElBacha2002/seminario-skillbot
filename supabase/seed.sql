@@ -1392,3 +1392,94 @@ on conflict (use_case_id, position, letter) do update
   set body = excluded.body,
       is_correct = excluded.is_correct,
       feedback = excluded.feedback;
+
+-- Area y etiquetas de matching de los ocho casos con practica del Sprint 2.
+-- Sin esto el ranking no los puede recomendar y no aparecen al filtrar por
+-- area. estudiar-material queda sin area porque sirve en cualquiera.
+-- Se puede correr suelto sobre una base que ya tiene el catalogo.
+update public.use_cases as u
+   set area = v.area
+  from (values
+    ('ventas-sin-formulas', 'finanzas'),
+    ('reporte-campania', 'marketing'),
+    ('reunion-seguimiento', 'administracion'),
+    ('documento-presentacion', 'marketing'),
+    ('imagenes-redes', 'marketing'),
+    ('automatizar-tarea', 'administracion'),
+    ('comparar-decidir', 'administracion')
+  ) as v (id, area)
+ where u.id = v.id;
+
+insert into public.use_case_tags (use_case_id, kind, value) values
+  ('ventas-sin-formulas', 'area', 'finanzas'),
+  ('ventas-sin-formulas', 'problem', 'entender_ventas'),
+  ('ventas-sin-formulas', 'problem', 'cobrar_a_tiempo'),
+  ('ventas-sin-formulas', 'goal', 'ordenar_finanzas'),
+  ('ventas-sin-formulas', 'tool', 'excel'),
+  ('ventas-sin-formulas', 'tool', 'google_sheets'),
+  ('ventas-sin-formulas', 'experience', 'alguna_vez'),
+  ('ventas-sin-formulas', 'time', 'de_15_a_30'),
+
+  ('reporte-campania', 'area', 'marketing'),
+  ('reporte-campania', 'problem', 'medir_resultados'),
+  ('reporte-campania', 'problem', 'decidir_con_informacion'),
+  ('reporte-campania', 'goal', 'mejorar_comunicacion'),
+  ('reporte-campania', 'tool', 'chatgpt'),
+  ('reporte-campania', 'tool', 'google_sheets'),
+  ('reporte-campania', 'experience', 'alguna_vez'),
+  ('reporte-campania', 'time', 'de_15_a_30'),
+
+  ('reunion-seguimiento', 'area', 'administracion'),
+  ('reunion-seguimiento', 'problem', 'preparar_reuniones'),
+  ('reunion-seguimiento', 'problem', 'hacer_seguimiento'),
+  ('reunion-seguimiento', 'problem', 'atender_clientes'),
+  ('reunion-seguimiento', 'goal', 'ordenar_operacion'),
+  ('reunion-seguimiento', 'tool', 'chatgpt'),
+  ('reunion-seguimiento', 'tool', 'gemini'),
+  ('reunion-seguimiento', 'experience', 'alguna_vez'),
+  ('reunion-seguimiento', 'time', 'de_15_a_30'),
+
+  ('estudiar-material', 'problem', 'empezar_sin_experiencia'),
+  ('estudiar-material', 'problem', 'decidir_con_informacion'),
+  ('estudiar-material', 'goal', 'ahorrar_tiempo'),
+  ('estudiar-material', 'tool', 'notebooklm'),
+  ('estudiar-material', 'tool', 'chatgpt'),
+  ('estudiar-material', 'experience', 'nunca'),
+  ('estudiar-material', 'time', 'de_15_a_30'),
+
+  ('documento-presentacion', 'area', 'marketing'),
+  ('documento-presentacion', 'problem', 'explicar_oferta'),
+  ('documento-presentacion', 'problem', 'preparar_reuniones'),
+  ('documento-presentacion', 'goal', 'mejorar_comunicacion'),
+  ('documento-presentacion', 'tool', 'chatgpt'),
+  ('documento-presentacion', 'tool', 'copilot'),
+  ('documento-presentacion', 'experience', 'alguna_vez'),
+  ('documento-presentacion', 'time', 'de_15_a_30'),
+
+  ('imagenes-redes', 'area', 'marketing'),
+  ('imagenes-redes', 'problem', 'publicar_en_redes'),
+  ('imagenes-redes', 'problem', 'crear_contenido'),
+  ('imagenes-redes', 'goal', 'conseguir_clientes'),
+  ('imagenes-redes', 'tool', 'chatgpt'),
+  ('imagenes-redes', 'tool', 'canva'),
+  ('imagenes-redes', 'tool', 'instagram'),
+  ('imagenes-redes', 'experience', 'alguna_vez'),
+  ('imagenes-redes', 'time', 'de_15_a_30'),
+
+  ('automatizar-tarea', 'area', 'administracion'),
+  ('automatizar-tarea', 'problem', 'ahorrar_tiempo_repetitivo'),
+  ('automatizar-tarea', 'problem', 'empezar_sin_experiencia'),
+  ('automatizar-tarea', 'goal', 'ahorrar_tiempo'),
+  ('automatizar-tarea', 'tool', 'google_sheets'),
+  ('automatizar-tarea', 'tool', 'chatgpt'),
+  ('automatizar-tarea', 'experience', 'seguido'),
+  ('automatizar-tarea', 'time', 'de_30_a_60'),
+
+  ('comparar-decidir', 'area', 'administracion'),
+  ('comparar-decidir', 'problem', 'decidir_con_informacion'),
+  ('comparar-decidir', 'goal', 'tomar_decisiones'),
+  ('comparar-decidir', 'tool', 'chatgpt'),
+  ('comparar-decidir', 'tool', 'gemini'),
+  ('comparar-decidir', 'experience', 'alguna_vez'),
+  ('comparar-decidir', 'time', 'de_15_a_30')
+on conflict (use_case_id, kind, value) do nothing;

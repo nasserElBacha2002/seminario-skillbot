@@ -177,6 +177,26 @@ export function rankUseCases(answers, useCases, options) {
     .map(({ sortOrder, ...item }, index) => ({ ...item, position: index + 1 }))
 }
 
+function matchesProfile(entry) {
+  return entry.breakdown.problems > 0 || entry.breakdown.goal > 0
+}
+
+// Una práctica entra antes que una ficha si coincide con un problema o con el
+// objetivo; el área sola no alcanza, igual que en el ranking. Los lugares que
+// sobran van a los casos de mayor puntaje, tengan práctica o no.
+export function selectRecommendations(ranking, { limit = 6, practiceSlots = 3 } = {}) {
+  const candidates = (ranking ?? []).filter((entry) => entry.score > 0)
+  const practices = candidates
+    .filter((entry) => entry.practiceReady && matchesProfile(entry))
+    .slice(0, Math.min(practiceSlots, limit))
+  const chosen = new Set(practices.map((entry) => entry.id))
+  const rest = candidates.filter((entry) => !chosen.has(entry.id)).slice(0, limit - practices.length)
+  return [...practices, ...rest].sort((left, right) => {
+    if (left.practiceReady !== right.practiceReady) return left.practiceReady ? -1 : 1
+    return left.position - right.position
+  })
+}
+
 export function primaryReason(entry) {
   if (!entry?.reasons?.length) return null
   return REASON_ORDER.map((kind) => entry.reasons.find((reason) => reason.kind === kind)).find(Boolean) ?? null

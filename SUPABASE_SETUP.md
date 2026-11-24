@@ -476,7 +476,8 @@ No modifica migraciones anteriores ni las funciones de Auth. La Fase 0 informó 
 12. `20261027200000_help_community.sql`
 13. `20261027210000_help_community_auth.sql`
 14. `20261103120000_onboarding_model.sql`
-15. `supabase/seed.sql`
+15. `20261124180000_onboarding_ficha_copy.sql` (solo actualiza labels del vocabulario; idempotente)
+16. `supabase/seed.sql`
 
 `20261012230000` y `20261027120000` borran progreso o perfiles huérfanos. No hay que volver a ejecutarlas a mano sobre una base con usuarios. La migración de onboarding no las invoca y no repite esos `DELETE`.
 

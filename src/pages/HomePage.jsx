@@ -38,7 +38,7 @@ export function HomePage({ setPage, openCase, onExplore }) {
           <h1>{personalized ? 'Encontrá soluciones con IA para tu emprendimiento' : '¿Qué querés resolver?'}</h1>
           <p>
             {personalized
-              ? 'El orden sale de las dificultades, el objetivo y las áreas que marcaste. Un caso de otra área puede aparecer primero si resuelve mejor lo que necesitás.'
+              ? 'El orden sale de lo que te cuesta más, tu objetivo y las áreas que marcaste. Un caso de otra área puede aparecer primero si resuelve mejor lo que necesitás.'
               : 'Elegí un problema de Marketing, Finanzas o Administración y practicá cómo resolverlo con IA.'}
           </p>
         </div>
@@ -61,8 +61,8 @@ export function HomePage({ setPage, openCase, onExplore }) {
                 <h2>Recomendado para vos</h2>
                 <p>
                   {recommended.some((entry) => entry.practiceReady)
-                    ? 'Primero los que podés practicar acá. Después, otros casos que coinciden con lo que marcaste.'
-                    : 'Los casos que mejor coinciden con lo que marcaste.'}
+                    ? 'Primero los que podés practicar acá. Después, otros casos que coinciden con lo que marcaste. Abrí uno y seguí los pasos hasta el resultado esperado.'
+                    : 'Los casos que mejor coinciden con lo que marcaste. Abrí uno y seguí los pasos hasta el resultado esperado.'}
                 </p>
               </div>
             </div>

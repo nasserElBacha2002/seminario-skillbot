@@ -15,8 +15,8 @@ export const STEPS = [
     key: 'problems',
     kind: 'problem',
     multiple: true,
-    title: '¿Cuáles son las principales dificultades que enfrentás?',
-    hint: 'Primero aparecen las áreas que elegiste. Las demás quedan al final y son opcionales.',
+    title: '¿Qué te cuesta más hoy en el negocio?',
+    hint: 'Son fricciones del día a día, no metas. Primero las áreas que elegiste; el resto es opcional.',
   },
   {
     key: 'tools',

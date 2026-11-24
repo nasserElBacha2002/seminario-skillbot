@@ -3,11 +3,16 @@ import { Check, Lock, TriangleAlert } from 'lucide-react'
 import { useSkillbotData } from '../context/SkillbotData'
 import { stepStates } from '../lib/steps'
 
-export function CaseSteps({ useCase }) {
+export function CaseSteps({ useCase, onlyPosition = null, onlyPositions = null, hideToggle = false }) {
   const { data, toggleStep } = useSkillbotData()
   const [busy, setBusy] = useState(null)
   const [saveError, setSaveError] = useState(null)
   const { steps, blockedBy } = stepStates(useCase, data.doneSteps[useCase.id])
+  const visible = onlyPositions?.length
+    ? steps.filter((step) => onlyPositions.includes(step.position))
+    : onlyPosition == null
+      ? steps
+      : steps.filter((step) => step.position === onlyPosition)
 
   async function toggle(step) {
     if (step.locked || busy !== null) return
@@ -25,7 +30,7 @@ export function CaseSteps({ useCase }) {
   return (
     <div className="guide-checks">
       <ol className="guide-steps">
-        {steps.map((step) => (
+        {visible.map((step) => (
           <li key={step.position} className={`guide-step ${step.done ? 'done' : ''} ${step.locked ? 'locked' : ''}`}>
             <b aria-hidden="true">{step.done ? <Check size={14} /> : step.position}</b>
             <div>
@@ -40,7 +45,7 @@ export function CaseSteps({ useCase }) {
               )}
               {step.locked ? (
                 <small className="step-locked"><Lock size={12} /> Confirmá el paso {blockedBy} para seguir.</small>
-              ) : (
+              ) : !hideToggle && (
                 <button
                   type="button"
                   className={`step-toggle ${step.done ? 'checked' : ''}`}

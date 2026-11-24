@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { MessagesSquare } from 'lucide-react'
 import { caseIcon } from '../components/icons'
-import { CaseGuide } from '../components/CaseGuide'
-import { FichaGuide } from '../components/FichaGuide'
-import { CaseResult } from '../components/CaseResult'
-import { DynamicCaseForm } from '../components/DynamicCaseForm'
+import { ContextFormPager } from '../components/ContextFormPager'
+import { FichaPager } from '../components/FichaPager'
+import { GuidePager } from '../components/GuidePager'
+import { PracticeDonePager } from '../components/PracticeDonePager'
 import { Layout } from '../components/Layout'
-import { closingLine, PracticeRound } from '../components/PracticeRound'
+import { PracticeRound } from '../components/PracticeRound'
 import { useSkillbotData } from '../context/SkillbotData'
 import { isPracticeReady, nextChallengeIndex, practiceFieldsOf, resumePractice } from '../lib/practice'
 import { fillTemplate, unresolvedPlaceholders } from '../lib/template'
@@ -151,64 +151,84 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
     return xp
   }
 
-  const compact = stage !== 'intro'
-  const hideTitle = stage === 'done'
+  const isIntroPager = stage === 'intro'
+  const isImmersiveFlow = stage === 'intro' || stage === 'context' || stage === 'keys' || stage === 'practice' || stage === 'done'
+  const introVariant = ready ? 'practice' : 'ficha'
+  const exitToOrigin = () => setPage(origin || 'inicio')
+
+  const caseHeading = (
+    <div className={`case-heading${stage !== 'intro' ? ' case-heading-compact' : ''}`}>
+      <span className={`hero-tool-icon tool-icon ${useCase.color}`}><Icon size={28} /></span>
+      <div>
+        {useCase.areaName && <p className="case-kicker">{useCase.areaName}</p>}
+        <h1>{useCase.title}</h1>
+        <p>{useCase.description}</p>
+        <div className="case-meta-pills">
+          <span>{useCase.estimatedTime}</span>
+          <span>Dificultad {String(useCase.difficulty).toLocaleLowerCase('es')}</span>
+        </div>
+        {useCase.learning && !isIntroPager && (
+          <p className="case-goal"><strong>Objetivo.</strong> {useCase.learning}</p>
+        )}
+      </div>
+    </div>
+  )
+
+  const caseAsk = (
+    <aside className="case-ask">
+      <span><MessagesSquare size={18} /></span>
+      <div>
+        <b>¿Te trabaste con este caso?</b>
+        <p>Preguntá en la comunidad: otros usuarios pueden ayudarte.</p>
+      </div>
+      <button type="button" className="secondary" onClick={() => onAsk(useCase.id)}>Preguntar</button>
+    </aside>
+  )
 
   return (
     <Layout page="detalle" setPage={setPage}>
-      <section className="page case-flow">
-        <button type="button" className="back" onClick={() => setPage(origin || 'inicio')}>← Volver</button>
-        <div className={`case-heading${compact ? ' case-heading-compact' : ''}${hideTitle ? ' case-heading-result' : ''}`}>
-          <span className={`hero-tool-icon tool-icon ${useCase.color}`}><Icon size={28} /></span>
-          <div>
-            {useCase.areaName && <p className="case-kicker">{useCase.areaName}</p>}
-            <h1>{useCase.title}</h1>
-            <p>{useCase.description}</p>
-            <p className="case-facts">{useCase.estimatedTime} · Dificultad {String(useCase.difficulty).toLocaleLowerCase('es')}</p>
-            {useCase.learning && <p className="case-outcome">Vas a aprender: {useCase.learning}</p>}
-          </div>
-        </div>
-
-        {stage === 'intro' && (
-          <>
-            <article className="example-box">
-              <p className="case-kicker">Por ejemplo</p>
-              <p>{useCase.situation}</p>
-            </article>
-            {ready ? (
-              <div className="case-actions">
-                <button type="button" className="primary" onClick={start}>
-                  {completed ? 'Repetir práctica' : progress?.progress > 0 ? 'Continuar práctica' : 'Empezar práctica'}
-                </button>
-                {completed && loadResult(useCase.id)?.text && (
-                  <button type="button" className="secondary" onClick={showResult}>Ver mi pedido</button>
-                )}
-              </div>
-            ) : (
-              <FichaGuide useCase={useCase} />
-            )}
-            {saveError && <p className="save-error" role="alert">{saveError.message}</p>}
-          </>
+      <section className={`page case-flow${isImmersiveFlow ? ' case-intro-pager' : ''}`}>
+        {!isImmersiveFlow && (
+          <button type="button" className="back" onClick={exitToOrigin}>← Volver</button>
         )}
 
-        {stage === 'context' && (
+        {isIntroPager ? (
           <>
-            <h2 className="flow-title">Contanos tu caso</h2>
-            <p className="flow-lead">Con esto practicamos sobre tu situación. El pedido se arma después de los desafíos.</p>
-            <DynamicCaseForm
-              key={`${useCase.id}-context`}
-              useCase={practiceCase}
-              initialValues={loadDraft(useCase.id)}
-              submitLabel="Continuar"
-              onSubmit={saveContext}
-              onCancel={() => setStage('intro')}
+            <FichaPager
+              variant={introVariant}
+              useCase={useCase}
+              onAsk={onAsk}
+              onExit={exitToOrigin}
+              onStart={start}
+              startLabel={
+                completed ? 'Repetir práctica' : progress?.progress > 0 ? 'Continuar práctica' : 'Empezar práctica'
+              }
+              onShowResult={
+                completed && loadResult(useCase.id)?.text ? showResult : undefined
+              }
             />
+            {saveError && <p className="save-error" role="alert">{saveError.message}</p>}
           </>
+        ) : !isImmersiveFlow ? (
+          caseHeading
+        ) : null}
+
+        {stage === 'context' && (
+          <ContextFormPager
+            key={`${useCase.id}-context-pager`}
+            useCase={practiceCase}
+            initialValues={loadDraft(useCase.id)}
+            onSubmit={saveContext}
+            onExit={exitToOrigin}
+            onBackIntro={() => setStage('intro')}
+          />
         )}
 
         {stage === 'keys' && (
-          <CaseGuide
+          <GuidePager
             useCase={useCase}
+            onExit={exitToOrigin}
+            onBackIntro={() => setStage('context')}
             onContinue={() => {
               const point = currentPoint()
               applyPoint(point.stage === 'keys' ? { stage: 'practice', round: 0 } : point)
@@ -223,6 +243,8 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
             index={round}
             total={challenges.length}
             hasPendingOther={pendingAfter(round) !== -1}
+            onExit={exitToOrigin}
+            onBack={() => setStage('keys')}
             onAnswer={answer}
             onContinue={() => {
               const next = pendingAfter(round)
@@ -237,42 +259,22 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
         )}
 
         {stage === 'done' && (
-          <>
-            <section className="practice-close">
-              <h2>Práctica completada</h2>
-              <p>Terminaste los 3 desafíos y ya sabés qué mirar antes de confiar en un pedido o en una respuesta de IA.</p>
-              <ul>
-                {challenges.map((challenge) => <li key={challenge.position}>✓ {closingLine(challenge)}</li>)}
-              </ul>
-              {earned > 0 ? (
-                <p className="earned">+{earned} XP</p>
-              ) : awardError ? (
-                <p className="result-note">Terminaste la práctica. El XP no se pudo guardar: falta aplicar la migración de desafíos. Cuando esté, repetí la práctica para sumarlo una sola vez.</p>
-              ) : (
-                <p className="result-note">Esta práctica no sumó XP nuevo. La recompensa de cada desafío se entrega una sola vez.</p>
-              )}
-            </section>
-            {resultText && (
-              <CaseResult
-                text={resultText}
-                situation={situation}
-                tools={useCase.tools}
-                saveError={saveError}
-                onEdit={() => setStage('context')}
-                onBack={() => setStage('intro')}
-              />
-            )}
-          </>
+          <PracticeDonePager
+            useCase={useCase}
+            challenges={challenges}
+            earned={earned}
+            awardError={awardError}
+            resultText={resultText}
+            situation={situation}
+            tools={useCase.tools}
+            saveError={saveError}
+            onExit={exitToOrigin}
+            onEdit={() => setStage('context')}
+            onBackIntro={() => setStage('intro')}
+          />
         )}
 
-        <aside className="case-ask">
-          <span><MessagesSquare size={18} /></span>
-          <div>
-            <b>¿Te trabaste con este caso?</b>
-            <p>Preguntá en la comunidad: otros usuarios pueden ayudarte.</p>
-          </div>
-          <button type="button" className="secondary" onClick={() => onAsk(useCase.id)}>Preguntar</button>
-        </aside>
+        {!isImmersiveFlow && caseAsk}
       </section>
     </Layout>
   )

@@ -3,7 +3,7 @@ import { ExternalLink } from 'lucide-react'
 import { arrangeTools } from './CaseGuide'
 import { copyText } from '../lib/clipboard'
 
-export function CaseResult({ text, tools, situation, xpNote, saveError, onEdit, onBack }) {
+export function CaseResult({ text, tools, situation, xpNote, saveError, onEdit, onBack, embedded = false }) {
   const [notice, setNotice] = useState('')
   const [copied, setCopied] = useState(false)
   const { recommended, others } = arrangeTools(tools)
@@ -26,8 +26,8 @@ export function CaseResult({ text, tools, situation, xpNote, saveError, onEdit, 
   }
 
   return (
-    <div className="case-result">
-      <h2>Ponelo en práctica vos</h2>
+    <div className={`case-result${embedded ? ' case-result-embedded' : ''}`}>
+      {!embedded && <h2>Ponelo en práctica vos</h2>}
       <p className="result-lead">Ya practicaste qué mirar. Copiá este pedido, abrí la herramienta que viste antes y usalo en tu caso real.</p>
       {situation && (
         <article className="situation-note">

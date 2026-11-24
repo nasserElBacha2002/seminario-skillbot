@@ -9,7 +9,7 @@ const options = {
     { value: 'administracion', label: 'Administración' },
   ],
   problem: [
-    { value: 'atraer_clientes', label: 'Conseguir clientes' },
+    { value: 'atraer_clientes', label: 'Pocas consultas o clientes nuevos' },
     { value: 'controlar_gastos', label: 'Controlar gastos' },
     { value: 'medir_resultados', label: 'Medir si funciona' },
   ],

@@ -196,6 +196,32 @@ export function onboardingErrorMessage(error) {
   return 'No pudimos guardar tus respuestas. Intentá nuevamente.'
 }
 
+export function hasOnboardingAnswers(answers) {
+  if (!answers) return false
+  const picked = (values) => (Array.isArray(values) ? values.filter(Boolean).length : 0)
+  return Boolean(
+    picked(answers.areas)
+    || picked(answers.problems)
+    || picked(answers.tools)
+    || answers.aiExperience
+    || answers.primaryGoal
+    || answers.availableTime
+  )
+}
+
+export function onboardingState(profileCompletedAt, responseRow) {
+  const answers = answersFromRow(responseRow)
+  if (!hasOnboardingAnswers(answers)) return { completedAt: null, answers: null }
+  return {
+    completedAt: profileCompletedAt || answers.updatedAt || responseRow?.created_at || null,
+    answers,
+  }
+}
+
+export function mustCompleteOnboarding(onboarding) {
+  return !onboarding?.completedAt || !hasOnboardingAnswers(onboarding?.answers)
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000
 
 export function canPostponeOnboarding({ profile, progress, activityDays, achievements, now = Date.now() }) {

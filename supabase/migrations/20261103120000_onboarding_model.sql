@@ -169,7 +169,7 @@ on conflict (kind, value) do update
       sort_order = excluded.sort_order;
 
 insert into public.onboarding_options (kind, value, label, area, sort_order) values
-  ('problem', 'atraer_clientes', 'Conseguir clientes', 'marketing', 1),
+  ('problem', 'atraer_clientes', 'Pocas consultas o clientes nuevos', 'marketing', 1),
   ('problem', 'explicar_oferta', 'Explicar mi oferta', 'marketing', 2),
   ('problem', 'publicar_en_redes', 'Publicar en redes', 'marketing', 3),
   ('problem', 'crear_contenido', 'Crear contenido', 'marketing', 4),
@@ -187,9 +187,9 @@ insert into public.onboarding_options (kind, value, label, area, sort_order) val
   ('problem', 'coordinar_pendientes', 'Coordinar pendientes', 'administracion', 16),
   ('problem', 'atender_clientes', 'Atender clientes', 'administracion', 17),
   ('problem', 'preparar_reuniones', 'Preparar reuniones', 'administracion', 18),
-  ('problem', 'ahorrar_tiempo_repetitivo', 'Dejar de repetir tareas a mano', null, 19),
-  ('problem', 'decidir_con_informacion', 'Decidir con información', null, 20),
-  ('problem', 'empezar_sin_experiencia', 'Avanzar sin saber la herramienta', null, 21),
+  ('problem', 'ahorrar_tiempo_repetitivo', 'Repito las mismas tareas a mano', null, 19),
+  ('problem', 'decidir_con_informacion', 'Decido sin datos claros', null, 20),
+  ('problem', 'empezar_sin_experiencia', 'Me trabo sin saber usar la herramienta', null, 21),
   ('goal', 'conseguir_clientes', 'Conseguir clientes', null, 1),
   ('goal', 'ordenar_finanzas', 'Ordenar las finanzas', null, 2),
   ('goal', 'ahorrar_tiempo', 'Ahorrar tiempo', null, 3),

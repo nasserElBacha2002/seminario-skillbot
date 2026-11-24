@@ -162,7 +162,7 @@ function PreferenceSummary({ onboarding, onEdit }) {
   const done = Boolean(onboarding?.completedAt)
   const groups = done && answers ? [
     ['Áreas', optionLabels(options, 'area', answers.areas)],
-    ['Dificultades', optionLabels(options, 'problem', answers.problems)],
+    ['Qué te cuesta más', optionLabels(options, 'problem', answers.problems)],
     ['Herramientas', optionLabels(options, 'tool', answers.tools)],
     ['Experiencia con IA', optionLabels(options, 'experience', answers.aiExperience)],
     ['Primer resultado', optionLabels(options, 'goal', answers.primaryGoal)],

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { MessagesSquare } from 'lucide-react'
 import { caseIcon } from '../components/icons'
 import { CaseGuide } from '../components/CaseGuide'
+import { FichaGuide } from '../components/FichaGuide'
 import { CaseResult } from '../components/CaseResult'
 import { DynamicCaseForm } from '../components/DynamicCaseForm'
 import { Layout } from '../components/Layout'
@@ -184,11 +185,7 @@ export function UseCasePage({ setPage, useCase, origin, onAsk }) {
                 )}
               </div>
             ) : (
-              <article className="ficha-note">
-                <p className="case-kicker">Ficha</p>
-                <p>Este caso explica el problema y cómo encararlo con IA. No incluye una práctica con desafíos.</p>
-                {useCase.mistake && <p><b>Error frecuente:</b> {useCase.mistake}</p>}
-              </article>
+              <FichaGuide useCase={useCase} />
             )}
             {saveError && <p className="save-error" role="alert">{saveError.message}</p>}
           </>

@@ -22,9 +22,9 @@ const options = {
     { value: 'administracion', label: 'Administración', area: null, sortOrder: 3 },
   ],
   problem: [
-    { value: 'atraer_clientes', label: 'Conseguir clientes', area: 'marketing', sortOrder: 1 },
+    { value: 'atraer_clientes', label: 'Pocas consultas o clientes nuevos', area: 'marketing', sortOrder: 1 },
     { value: 'controlar_gastos', label: 'Controlar gastos', area: 'finanzas', sortOrder: 2 },
-    { value: 'decidir_con_informacion', label: 'Decidir con información', area: null, sortOrder: 3 },
+    { value: 'decidir_con_informacion', label: 'Decido sin datos claros', area: null, sortOrder: 3 },
   ],
   tool: [
     { value: 'instagram', label: 'Instagram', area: null, sortOrder: 1 },

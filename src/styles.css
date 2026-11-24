@@ -315,8 +315,13 @@ a.secondary{text-decoration:none}
 .area-board button:hover{border-color:#c9c3ff;background:#f7f6ff}
 .area-board b{font-family:'Plus Jakarta Sans',sans-serif;font-size:16px}
 .area-board small{color:#777589;font-size:12px}
-.ficha-note{margin-top:8px;padding:16px 18px;background:#fff;border:1px solid #e9e8f0;border-radius:15px}
-.ficha-note p:not(.case-kicker){margin-top:8px;font-size:14px;line-height:1.5;color:#4f4d63}
+.ficha-guide{display:grid;gap:16px;margin-top:4px}
+.ficha-actions{margin:0;padding-left:20px;display:grid;gap:10px}
+.ficha-actions li{font-size:14px;line-height:1.5;color:#3c3a4f}
+.ficha-outcome{padding:16px 18px;background:#f6f5ff;border:1px solid #e1def8;border-radius:15px}
+.ficha-outcome p:not(.case-kicker){margin-top:6px;font-size:14px;line-height:1.5;color:#3c3a4f}
+.ficha-success ul li{display:flex;align-items:flex-start;gap:8px}
+.ficha-success ul li svg{flex:none;margin-top:3px;color:#2f9a70}
 @media(max-width:570px){
   .area-board{grid-template-columns:1fr}
   .section-heading{flex-direction:column;align-items:flex-start;gap:8px}
